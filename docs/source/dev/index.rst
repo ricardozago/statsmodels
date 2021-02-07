@@ -40,7 +40,7 @@ greatly helps the job of maintaining and releasing the software a shared effort.
 - Code submissions must always include tests. See our notes on :ref:`testing`.
 - Each function, class, method, and attribute needs to be documented using
   docstrings. We conform to the
-  `numpy docstring standard <https://github.com/numpy/numpy/blob/master/doc/HOWTO_DOCUMENT.rst.txt#docstring-standard>`_.
+  `numpy docstring standard <https://numpy.org/doc/stable/docs/howto_document.html#docstring-standard>`_.
 - If you are adding new functionality, you need to add it to the documentation
   by editing (or creating) the appropriate file in ``docs/source``.
 - Make sure your documentation changes parse correctly. Change into the
@@ -68,8 +68,9 @@ github? Here are the steps you need to take.
 2. `Create a new feature branch <https://git-scm.com/book/en/v2/Git-Branching-Basic-Branching-and-Merging>`_.
    Each branch must be self-contained, with a single new feature or bugfix.
 3. Make sure the test suite passes. This includes testing on Python 3. The
-   easiest way to do this is to either enable `Travis-CI <https://travis-ci.org/>`_
-   on your fork, or to make a pull request and check there.
+   easiest way to do this is to make a pull request and let the bot check for
+   you. This can be slow, and if you are unsure about the fix or enhancement,
+   it is best to run pytest locally.
 4. `Submit a pull request <https://help.github.com/articles/about-pull-requests/>`_
 
 Pull requests are thoroughly reviewed before being accepted into the codebase.
@@ -99,6 +100,7 @@ Contents
    maintainer_notes
    test_notes
    naming_conventions
+   warnings-and-exceptions
    dataset_notes
    examples
    get_involved

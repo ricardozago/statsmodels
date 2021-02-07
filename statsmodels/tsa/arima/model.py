@@ -8,6 +8,9 @@ from statsmodels.compat.pandas import Appender
 
 import warnings
 
+import numpy as np
+
+from statsmodels.tools.data import _is_using_pandas
 from statsmodels.tsa.statespace import sarimax
 from statsmodels.tsa.statespace.kalman_filter import MEMORY_CONSERVE
 from statsmodels.tsa.statespace.tools import diff
@@ -76,7 +79,7 @@ class ARIMA(sarimax.SARIMAX):
         The offset at which to start time trend values. Default is 1, so that
         if `trend='t'` the trend is equal to 1, 2, ..., nobs. Typically is only
         set when the model created by extending a previous dataset.
-    dates : array-like of datetime, optional
+    dates : array_like of datetime, optional
         If no index is given by `endog` or `exog`, an array-like object of
         datetime objects can be provided.
     freq : str, optional
@@ -109,7 +112,7 @@ class ARIMA(sarimax.SARIMAX):
                  seasonal_order=(0, 0, 0, 0), trend=None,
                  enforce_stationarity=True, enforce_invertibility=True,
                  concentrate_scale=False, trend_offset=1, dates=None,
-                 freq=None, missing='none'):
+                 freq=None, missing='none', validate_specification=True):
         # Default for trend
         # 'c' if there is no integration and 'n' otherwise
         # TODO: if trend='c', then we could alternatively use `demean=True` in
@@ -130,8 +133,33 @@ class ARIMA(sarimax.SARIMAX):
             endog, exog=exog, order=order, seasonal_order=seasonal_order,
             trend=trend, enforce_stationarity=None, enforce_invertibility=None,
             concentrate_scale=concentrate_scale, trend_offset=trend_offset,
-            dates=dates, freq=freq, missing=missing)
+            dates=dates, freq=freq, missing=missing,
+            validate_specification=validate_specification)
         exog = self._spec_arima._model.data.orig_exog
+
+        # Raise an error if we have a constant in an integrated model
+
+        has_trend = len(self._spec_arima.trend_terms) > 0
+        if has_trend:
+            lowest_trend = np.min(self._spec_arima.trend_terms)
+            if lowest_trend < order[1] + seasonal_order[1]:
+                raise ValueError(
+                    'In models with integration (`d > 0`) or seasonal'
+                    ' integration (`D > 0`), trend terms of lower order than'
+                    ' `d + D` cannot be (as they would be eliminated due to'
+                    ' the differencing operation). For example, a constant'
+                    ' cannot be included in an ARIMA(1, 1, 1) model, but'
+                    ' including a linear trend, which would have the same'
+                    ' effect as fitting a constant to the differenced data,'
+                    ' is allowed.')
+
+        # Keep the given `exog` by removing the prepended trend variables
+        input_exog = None
+        if exog is not None:
+            if _is_using_pandas(exog, None):
+                input_exog = exog.iloc[:, self._spec_arima.k_trend:]
+            else:
+                input_exog = exog[:, self._spec_arima.k_trend:]
 
         # Initialize the base SARIMAX class
         # Note: we don't pass in a trend value to the base class, since ARIMA
@@ -143,8 +171,16 @@ class ARIMA(sarimax.SARIMAX):
             enforce_stationarity=enforce_stationarity,
             enforce_invertibility=enforce_invertibility,
             concentrate_scale=concentrate_scale, dates=dates, freq=freq,
-            missing=missing)
+            missing=missing, validate_specification=validate_specification)
         self.trend = trend
+
+        # Save the input exog and input exog names, so that we can refer to
+        # them later (see especially `ARIMAResults.append`)
+        self._input_exog = input_exog
+        if exog is not None:
+            self._input_exog_names = self.exog_names[self._spec_arima.k_trend:]
+        else:
+            self._input_exog_names = None
 
         # Override the public attributes for k_exog and k_trend to reflect the
         # distinction here (for the purpose of the superclass, these are both
@@ -322,9 +358,9 @@ class ARIMA(sarimax.SARIMAX):
             else:
                 method_kwargs.setdefault('disp', 0)
 
-                res = super(ARIMA, self).fit(return_params=return_params,
-                                             low_memory=low_memory,
-                                             **method_kwargs)
+                res = super(ARIMA, self).fit(
+                    return_params=return_params, low_memory=low_memory,
+                    cov_type=cov_type, cov_kwds=cov_kwds, **method_kwargs)
                 if not return_params:
                     res.fit_details = res.mlefit
         else:
@@ -425,7 +461,30 @@ class ARIMA(sarimax.SARIMAX):
 
 @Appender(sarimax.SARIMAXResults.__doc__)
 class ARIMAResults(sarimax.SARIMAXResults):
-    pass
+
+    @Appender(sarimax.SARIMAXResults.append.__doc__)
+    def append(self, endog, exog=None, refit=False, fit_kwargs=None, **kwargs):
+        # MLEResults.append will concatenate the given `exog` here with
+        # `data.orig_exog`. However, `data.orig_exog` already has had any
+        # trend variables prepended to it, while the `exog` given here should
+        # not. Instead, we need to temporarily replace `orig_exog` and
+        # `exog_names` with the ones that correspond to those that were input
+        # by the user.
+        if exog is not None:
+            orig_exog = self.model.data.orig_exog
+            exog_names = self.model.exog_names
+            self.model.data.orig_exog = self.model._input_exog
+            self.model.exog_names = self.model._input_exog_names
+
+        # Perform the appending procedure
+        out = super().append(endog, exog=exog, refit=refit,
+                             fit_kwargs=fit_kwargs, **kwargs)
+
+        # Now we reverse the temporary change made above
+        if exog is not None:
+            self.model.data.orig_exog = orig_exog
+            self.model.exog_names = exog_names
+        return out
 
 
 class ARIMAResultsWrapper(sarimax.SARIMAXResultsWrapper):

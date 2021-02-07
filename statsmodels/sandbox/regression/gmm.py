@@ -1635,7 +1635,7 @@ def spec_hausman(params_e, params_i, cov_params_e, cov_params_i, dof=None):
     params_e : ndarray
         efficient and consistent under Null hypothesis,
         inconsistent under alternative hypothesis
-    params_i: ndarray
+    params_i : ndarray
         consistent under Null hypothesis,
         consistent under alternative hypothesis
     cov_params_e : ndarray, 2d
@@ -1721,7 +1721,7 @@ class DistQuantilesGMM(GMM):
 
     def fitstart(self):
         #todo: replace with or add call to distfn._fitstart
-        #      added but not used during testing, avoid Travis
+        #      added but not used during testing
         distfn = self.distfn
         if hasattr(distfn, '_fitstart'):
             start = distfn._fitstart(self.endog)

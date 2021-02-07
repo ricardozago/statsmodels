@@ -7,6 +7,7 @@ from numpy.testing import (
 from statsmodels.tsa.arima.datasets.brockwell_davis_2002 import lake, oshorts
 from statsmodels.tsa.arima.estimators.gls import gls
 
+
 @pytest.mark.low_precision('Test against Example 6.6.1 in Brockwell and Davis'
                            ' (2016)')
 def test_brockwell_davis_example_661():
@@ -202,5 +203,7 @@ def test_arma_kwargs():
     _, res2_imle = gls(endog, exog=exog, order=(1, 0, 1), n_iter=1,
                        arma_estimator_kwargs=arma_estimator_kwargs)
     assert_equal(res2_imle.arma_estimator_kwargs, arma_estimator_kwargs)
-    assert_equal(res2_imle.arma_results[1].minimize_results.message,
-                 b'CONVERGENCE: REL_REDUCTION_OF_F_<=_FACTR*EPSMCH')
+    msg = res2_imle.arma_results[1].minimize_results.message
+    if isinstance(msg, bytes):
+        msg = msg.decode("utf-8")
+    assert_equal(msg, 'CONVERGENCE: REL_REDUCTION_OF_F_<=_FACTR*EPSMCH')

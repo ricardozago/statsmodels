@@ -142,7 +142,8 @@ _init_doc = r"""
     a value.  Setting `vcp_p` to 0.5 seems to work well.
 
     The prior for the fixed effects parameters is Gaussian with mean 0
-    and standard deviation `fe_p`.
+    and standard deviation `fe_p`.  It is recommended that quantitative
+    covariates be standardized.
 
     Examples
     --------{example}
@@ -251,7 +252,7 @@ class _BayesMixedGLM(base.Model):
         if not sparse.issparse(exog_vc):
             exog_vc = sparse.csr_matrix(exog_vc)
 
-        ident = ident.astype(np.int)
+        ident = ident.astype(int)
         vcp_p = float(vcp_p)
         fe_p = float(fe_p)
 
@@ -443,7 +444,7 @@ class _BayesMixedGLM(base.Model):
             mat = patsy.dmatrix(fml, data, return_type='dataframe')
             exog_vc.append(mat)
             vcp_names.append(na)
-            ident.append(j * np.ones(mat.shape[1], dtype=np.integer))
+            ident.append(j * np.ones(mat.shape[1], dtype=np.int_))
             j += 1
         exog_vc = pd.concat(exog_vc, axis=1)
         vc_names = exog_vc.columns.tolist()

@@ -46,7 +46,7 @@ def _initialization_heuristic(endog, trend=False, seasonal=False,
 
     # Seasonal component
     initial_seasonal = None
-    if seasonal is not None:
+    if seasonal:
         # Calculate the number of full cycles to use
         if nobs < 2 * seasonal_periods:
             raise ValueError('Cannot compute initial seasonals using'
@@ -99,7 +99,9 @@ def _initialization_heuristic(endog, trend=False, seasonal=False,
 
     # Trend / Level
     exog = np.c_[np.ones(10), np.arange(10) + 1]
-    beta = np.linalg.pinv(exog).dot(endog[:10])
+    if endog.ndim == 1:
+        endog = np.atleast_2d(endog).T
+    beta = np.squeeze(np.linalg.pinv(exog).dot(endog[:10]))
     initial_level = beta[0]
 
     initial_trend = None

@@ -7,8 +7,6 @@ License: BSD-3
 '''
 
 
-from collections import OrderedDict
-
 import numpy as np
 
 from statsmodels.stats._knockoff import RegressionFDR
@@ -56,7 +54,7 @@ _alias_list = [['b', 'bonf', 'bonferroni'],
                ]
 
 
-multitest_alias = OrderedDict()
+multitest_alias = {}
 for m in _alias_list:
     multitest_alias[m[0]] = m[0]
     for a in m[1:]:
@@ -101,9 +99,9 @@ def multipletests(pvals, alpha=0.05, method='hs', is_sorted=False,
         true for hypothesis that can be rejected for given alpha
     pvals_corrected : ndarray
         p-values corrected for multiple tests
-    alphacSidak: float
+    alphacSidak : float
         corrected alpha for Sidak method
-    alphacBonf: float
+    alphacBonf : float
         corrected alpha for Bonferroni method
 
     Notes
@@ -278,7 +276,11 @@ def fdrcorrection(pvals, alpha=0.05, method='indep', is_sorted=False):
         set of p-values of the individual tests.
     alpha : float
         error rate
-    method : {'indep', 'negcorr')
+    method : {'indep', 'negcorr'}
+    is_sorted : bool
+        If False (default), the p_values will be sorted, but the corrected
+        pvalues are in the original order. If True, then it assumed that the
+        pvalues are already sorted in ascending order.
 
     Returns
     -------
