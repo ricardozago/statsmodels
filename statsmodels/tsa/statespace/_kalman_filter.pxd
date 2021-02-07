@@ -84,8 +84,6 @@ cdef class sKalmanFilter(object):
     cdef public int filter_timing
     cdef readonly int loglikelihood_burn
 
-    cdef public int [:] univariate_filter
-
     # ### Kalman filter properties
     cdef readonly np.float32_t [:] loglikelihood, scale
     cdef readonly np.float32_t [::1,:] filtered_state, predicted_state, forecast, forecast_error, standardized_forecast_error
@@ -239,8 +237,6 @@ cdef class dKalmanFilter(object):
     cdef public int filter_timing
     cdef readonly int loglikelihood_burn
 
-    cdef public int [:] univariate_filter
-
     # ### Kalman filter properties
     cdef readonly np.float64_t [:] loglikelihood, scale
     cdef readonly np.float64_t [::1,:] filtered_state, predicted_state, forecast, forecast_error, standardized_forecast_error
@@ -392,8 +388,6 @@ cdef class cKalmanFilter(object):
     cdef readonly int conserve_memory
     cdef public int filter_timing
     cdef readonly int loglikelihood_burn
-
-    cdef public int [:] univariate_filter
 
     # ### Kalman filter properties
     cdef readonly np.complex64_t [:] loglikelihood, scale
@@ -547,8 +541,6 @@ cdef class zKalmanFilter(object):
     cdef readonly int conserve_memory
     cdef public int filter_timing
     cdef readonly int loglikelihood_burn
-
-    cdef public int [:] univariate_filter
 
     # ### Kalman filter properties
     cdef readonly np.complex128_t [:] loglikelihood, scale

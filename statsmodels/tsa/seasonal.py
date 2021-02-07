@@ -6,11 +6,11 @@ from statsmodels.compat.pandas import deprecate_kwarg
 import numpy as np
 import pandas as pd
 from pandas.core.nanops import nanmean as pd_nanmean
-
-from statsmodels.tools.validation import PandasWrapper, array_like
 from statsmodels.tsa._stl import STL
-from statsmodels.tsa.filters.filtertools import convolution_filter
+
+from statsmodels.tools.validation import array_like, PandasWrapper
 from statsmodels.tsa.tsatools import freq_to_period
+from .filters.filtertools import convolution_filter
 
 __all__ = ['STL', 'seasonal_decompose', 'seasonal_mean', 'DecomposeResult']
 
@@ -115,10 +115,9 @@ def seasonal_decompose(x, model="additive", filt=None, period=None,
 
     The multiplicative model is Y[t] = T[t] * S[t] * e[t]
 
-    The results are obtained by first estimating the trend by applying
-    a convolution filter to the data. The trend is then removed from the
-    series and the average of this de-trended series for each period is
-    the returned seasonal component.
+    The seasonal component is first removed by applying a convolution
+    filter to the data. The average of this smoothed series for each
+    period is the returned seasonal component.
     """
     pfreq = period
     pw = PandasWrapper(x)
@@ -207,7 +206,6 @@ class DecomposeResult(object):
     weights : array_like, optional
         The weights used to reduce outlier influence.
     """
-
     def __init__(self, observed, seasonal, trend, resid, weights=None):
         self._seasonal = seasonal
         self._trend = trend

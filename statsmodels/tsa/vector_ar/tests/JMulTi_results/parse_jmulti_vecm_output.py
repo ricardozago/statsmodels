@@ -1,8 +1,8 @@
-from io import open
-import itertools
-import os
 import re
+import os
+from io import open
 
+import itertools
 import numpy as np
 
 debug_mode = False

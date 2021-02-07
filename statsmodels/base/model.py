@@ -1,7 +1,6 @@
 from statsmodels.compat.python import lzip
 
 from functools import reduce
-import warnings
 
 import numpy as np
 from scipy import stats
@@ -544,8 +543,9 @@ class LikelihoodModel(Model):
                 Hinv = eigvecs.dot(np.diag(1.0 / eigvals)).dot(eigvecs.T)
                 Hinv = np.asfortranarray((Hinv + Hinv.T) / 2.0)
             else:
-                warnings.warn('Inverting hessian failed, no bse or cov_params '
-                              'available', HessianInversionWarning)
+                from warnings import warn
+                warn('Inverting hessian failed, no bse or cov_params '
+                     'available', HessianInversionWarning)
                 Hinv = None
 
         if 'cov_type' in kwargs:
@@ -562,10 +562,10 @@ class LikelihoodModel(Model):
         mlefit.mle_retvals = retvals
         if isinstance(retvals, dict):
             if warn_convergence and not retvals['converged']:
+                from warnings import warn
                 from statsmodels.tools.sm_exceptions import ConvergenceWarning
-                warnings.warn("Maximum Likelihood optimization failed to "
-                              "converge. Check mle_retvals",
-                              ConvergenceWarning)
+                warn("Maximum Likelihood optimization failed to converge. "
+                     "Check mle_retvals", ConvergenceWarning)
 
         mlefit.mle_settings = optim_settings
         return mlefit
@@ -789,7 +789,6 @@ class GenericLikelihoodModel(LikelihoodModel):
         if hessian is not None:
             self.hessian = hessian
 
-        hasconst = kwds.pop("hasconst", None)
         self.__dict__.update(kwds)
 
         # TODO: data structures?
@@ -798,8 +797,7 @@ class GenericLikelihoodModel(LikelihoodModel):
         # self.df_model = 9999
         # somewhere: CacheWriteWarning: 'df_model' cannot be overwritten
         super(GenericLikelihoodModel, self).__init__(endog, exog,
-                                                     missing=missing,
-                                                     hasconst=hasconst)
+                                                     missing=missing)
 
         # this will not work for ru2nmnl, maybe np.ndim of a dict?
         if exog is not None:
@@ -969,6 +967,7 @@ class GenericLikelihoodModel(LikelihoodModel):
                                               for i in range(-k_miss)])
             else:
                 # I do not want to raise after we have already fit()
+                import warnings
                 warnings.warn('more exog_names than parameters', ValueWarning)
 
         return genericmlefit
@@ -989,8 +988,6 @@ class Results(object):
         self.__dict__.update(kwd)
         self.initialize(model, params, **kwd)
         self._data_attr = []
-        # Variables to clear from cache
-        self._data_in_cache = ['fittedvalues', 'resid', 'wresid']
 
     def initialize(self, model, params, **kwargs):
         """
@@ -1062,9 +1059,7 @@ class Results(object):
         exog_index = exog.index if is_pandas else None
 
         if transform and hasattr(self.model, 'formula') and (exog is not None):
-            # allow both location of design_info, see #7043
-            design_info = (getattr(self.model, "design_info", None) or
-                           self.model.data.design_info)
+            design_info = self.model.data.design_info
             from patsy import dmatrix
             if isinstance(exog, pd.Series):
                 # we are guessing whether it should be column or row
@@ -1087,6 +1082,7 @@ class Results(object):
                        '{0}'.format(str(str(exc))))
                 raise exc.__class__(msg)
             if orig_exog_len > len(exog) and not is_dict:
+                import warnings
                 if exog_index is None:
                     warnings.warn('nan values have been dropped', ValueWarning)
                 else:
@@ -1355,9 +1351,7 @@ class LikelihoodModelResults(Results):
             bse_ = np.empty(len(self.params))
             bse_[:] = np.nan
         else:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", RuntimeWarning)
-                bse_ = np.sqrt(np.diag(self.cov_params()))
+            bse_ = np.sqrt(np.diag(self.cov_params()))
         return bse_
 
     @cached_value
@@ -1365,20 +1359,16 @@ class LikelihoodModelResults(Results):
         """
         Return the t-statistic for a given parameter estimate.
         """
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            return self.params / self.bse
+        return self.params / self.bse
 
     @cached_value
     def pvalues(self):
         """The two-tailed p values for the t-stats of the params."""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            if self.use_t:
-                df_resid = getattr(self, 'df_resid_inference', self.df_resid)
-                return stats.t.sf(np.abs(self.tvalues), df_resid) * 2
-            else:
-                return stats.norm.sf(np.abs(self.tvalues)) * 2
+        if self.use_t:
+            df_resid = getattr(self, 'df_resid_inference', self.df_resid)
+            return stats.t.sf(np.abs(self.tvalues), df_resid) * 2
+        else:
+            return stats.norm.sf(np.abs(self.tvalues)) * 2
 
     def cov_params(self, r_matrix=None, column=None, scale=None, cov_p=None,
                    other=None):
@@ -1571,6 +1561,7 @@ class LikelihoodModelResults(Results):
         ==============================================================================
         """
         if scale is not None:
+            import warnings
             warnings.warn('scale is has no effect and is deprecated. It will'
                           'be removed in the next version.',
                           DeprecationWarning)
@@ -1722,6 +1713,7 @@ class LikelihoodModelResults(Results):
         <F test: F=array([[ 144.17976065]]), p=6.322026217355609e-08, df_denom=9, df_num=3>
         """
         if scale != 1.0:
+            import warnings
             warnings.warn('scale is has no effect and is deprecated. It will'
                           'be removed in the next version.',
                           DeprecationWarning)
@@ -1792,6 +1784,7 @@ class LikelihoodModelResults(Results):
         where the rank of the covariance of the noise is not full.
         """
         if scale != 1.0:
+            import warnings
             warnings.warn('scale is has no effect and is deprecated. It will'
                           'be removed in the next version.',
                           DeprecationWarning)
@@ -1833,6 +1826,7 @@ class LikelihoodModelResults(Results):
             invcov = np.linalg.pinv(cov_p)
             J_ = np.linalg.matrix_rank(cov_p)
             if J_ < J:
+                import warnings
                 warnings.warn('covariance of constraints does not have full '
                               'rank. The number of constraints is %d, but '
                               'rank is %d' % (J, J_), ValueWarning)
@@ -2197,8 +2191,8 @@ class LikelihoodModelResults(Results):
         model._data_attr : arrays attached to both the model instance
             and the results instance with the same attribute name.
 
-        result._data_in_cache : arrays that may exist as values in
-            result._cache
+        result.data_in_cache : arrays that may exist as values in
+            result._cache (TODO : should privatize name)
 
         result._data_attr_model : arrays attached to the model
             instance but not to the results instance
@@ -2245,7 +2239,9 @@ class LikelihoodModelResults(Results):
                 continue
             wipe(self, att)
 
-        for key in self._data_in_cache:
+        data_in_cache = getattr(self, 'data_in_cache', [])
+        data_in_cache += ['fittedvalues', 'resid', 'wresid']
+        for key in data_in_cache:
             try:
                 self._cache[key] = None
             except (AttributeError, KeyError):
@@ -2387,6 +2383,7 @@ class ResultMixin(object):
         distributed observations.
         """
         results = []
+        print(self.model.__class__)
         hascloneattr = True if hasattr(self.model, 'cloneattr') else False
         for i in range(nrep):
             rvsind = np.random.randint(self.nobs, size=self.nobs)
@@ -2491,13 +2488,6 @@ class GenericLikelihoodModelResults(LikelihoodModelResults, ResultMixin):
 
         self._cache = {}
         self.__dict__.update(mlefit.__dict__)
-
-        k_params = len(mlefit.params)
-        # checks mainly for adding new models or subclassing
-        if self.df_model + self.model.k_constant != k_params:
-            warnings.warn("df_model + k_constant differs from nparams")
-        if self.df_resid != self.nobs - k_params:
-            warnings.warn("df_resid differs from nobs - nparams")
 
     def summary(self, yname=None, xname=None, title=None, alpha=.05):
         """Summarize the Regression Results

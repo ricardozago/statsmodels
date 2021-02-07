@@ -4,16 +4,14 @@ Yule-Walker method for estimating AR(p) model parameters.
 Author: Chad Fulton
 License: BSD-3
 """
-from statsmodels.compat.pandas import deprecate_kwarg
-
-from statsmodels.regression import linear_model
 from statsmodels.tools.tools import Bunch
-from statsmodels.tsa.arima.params import SARIMAXParams
+from statsmodels.regression import linear_model
+
 from statsmodels.tsa.arima.specification import SARIMAXSpecification
+from statsmodels.tsa.arima.params import SARIMAXParams
 
 
-@deprecate_kwarg("unbiased", "adjusted")
-def yule_walker(endog, ar_order=0, demean=True, adjusted=False):
+def yule_walker(endog, ar_order=0, demean=True, unbiased=False):
     """
     Estimate AR parameters using Yule-Walker equations.
 
@@ -26,11 +24,12 @@ def yule_walker(endog, ar_order=0, demean=True, adjusted=False):
     demean : bool, optional
         Whether to estimate and remove the mean from the process prior to
         fitting the autoregressive coefficients. Default is True.
-    adjusted : bool, optional
-        Whether to use the adjusted autocovariance estimator, which uses
-        n - h degrees of freedom rather than n. For some processes this option
-        may  result in a non-positive definite autocovariance matrix. Default
-        is False.
+    unbiased : bool, optional
+        Whether to use the "unbiased" autocovariance estimator, which uses
+        n - h degrees of freedom rather than n. Note that despite the name, it
+        is only truly unbiased if the process mean is known (rather than
+        estimated) and for some processes it can result in a non-positive
+        definite autocovariance matrix. Default is False.
 
     Returns
     -------
@@ -46,7 +45,7 @@ def yule_walker(endog, ar_order=0, demean=True, adjusted=False):
 
     This procedure assumes that the series is stationary.
 
-    For a description of the effect of the adjusted estimate of the
+    For a description of the effect of the "unbiased" estimate of the
     autocovariance function, see 2.4.2 of [1]_.
 
     References
@@ -63,7 +62,7 @@ def yule_walker(endog, ar_order=0, demean=True, adjusted=False):
                          ' seasonal or non-consecutive AR orders.')
 
     # Estimate parameters
-    method = 'adjusted' if adjusted else 'mle'
+    method = 'unbiased' if unbiased else 'mle'
     p.ar_params, sigma = linear_model.yule_walker(
         endog, order=ar_order, demean=demean, method=method)
     p.sigma2 = sigma**2

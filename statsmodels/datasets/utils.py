@@ -204,7 +204,7 @@ def get_rdataset(dataname, package="datasets", cache=False):
 
     Returns
     -------
-    dataset : Dataset
+    dataset : Dataset instance
         A `statsmodels.data.utils.Dataset` instance. This objects has
         attributes:
 
@@ -213,6 +213,7 @@ def get_rdataset(dataname, package="datasets", cache=False):
         * package - The package from which the data came
         * from_cache - Whether not cached data was retrieved
         * __doc__ - The verbatim R documentation.
+
 
     Notes
     -----

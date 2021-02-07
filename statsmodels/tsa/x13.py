@@ -17,6 +17,7 @@ from warnings import warn
 
 import pandas as pd
 
+from statsmodels.compat.python import iteritems
 from statsmodels.tools.tools import Bunch
 from statsmodels.tools.sm_exceptions import (X13NotFoundError,
                                              IOWarning, X13Error,
@@ -221,7 +222,7 @@ class Spec(object):
 
     def set_options(self, **kwargs):
         options = ""
-        for key, value in kwargs.items():
+        for key, value in iteritems(kwargs):
             options += "{0}={1}\n".format(key, value)
             self.__dict__.update({key: value})
         self.options = options
@@ -591,7 +592,7 @@ def x13_arima_select_order(endog, maxorder=(2, 1), maxdiff=(2, 1), diff=None,
 
 class X13ArimaAnalysisResult(object):
     def __init__(self, **kwargs):
-        for key, value in kwargs.items():
+        for key, value in iteritems(kwargs):
             setattr(self, key, value)
 
     def plot(self):

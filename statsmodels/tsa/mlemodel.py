@@ -45,11 +45,6 @@ class TSMLEModel(LikelihoodModel):
         """
         Loglikelihood for timeseries model
 
-        Parameters
-        ----------
-        params : array_like
-            The model parameters
-
         Notes
         -----
         needs to be overwritten by subclass

@@ -135,7 +135,6 @@ class CheckDynamicFactor(object):
 
     def test_predict(self, **kwargs):
         # Tests predict + forecast
-        self.results.predict(end='1982-10-01', **kwargs)
         assert_allclose(
             self.results.predict(end='1982-10-01', **kwargs),
             self.true['predict'],
@@ -607,8 +606,7 @@ class TestDynamicFactor_ar2_errors(CheckDynamicFactor):
             res = mod.fit(
                 res1.params, method='nm', maxiter=10000,
                 optim_score='approx', disp=False)
-            # Added rtol to catch spurious failures on some platforms
-            assert_allclose(res.llf, self.results.llf, atol=1e-2, rtol=1e-4)
+            assert_allclose(res.llf, self.results.llf, atol=1e-2)
 
 
 class TestDynamicFactor_scalar_error(CheckDynamicFactor):

@@ -1,5 +1,4 @@
-|PyPI Version| |Conda Version| |License| |Azure CI Build Status|
-|Coveralls Coverage| |PyPI downloads| |Conda downloads|
+|Travis Build Status| |Azure CI Build Status| |Appveyor Build Status| |Coveralls Coverage|
 
 About statsmodels
 =================
@@ -66,7 +65,7 @@ Main Features
   - Markov switching models (MSAR), also known as Hidden Markov Models (HMM)
   - Univariate time series analysis: AR, ARIMA
   - Vector autoregressive models, VAR and structural VAR
-  - Vector error correction model, VECM
+  - Vector error correction modle, VECM
   - exponential smoothing, Holt-Winters
   - Hypothesis tests for time series: unit root, cointegration and others
   - Descriptive statistics and process models for time series analysis
@@ -148,7 +147,7 @@ Contributions in any form are welcome, including:
 * New features to existing models
 * New models
 
-https://www.statsmodels.org/stable/dev/test_notes
+https://statsmodels.github.io/dev/test_notes.html
 
 for instructions on installing statsmodels in *editable* mode.
 
@@ -174,17 +173,11 @@ Bug reports can be submitted to the issue tracker at
 
 https://github.com/statsmodels/statsmodels/issues
 
+.. |Travis Build Status| image:: https://travis-ci.org/statsmodels/statsmodels.svg?branch=master
+   :target: https://travis-ci.org/statsmodels/statsmodels
 .. |Azure CI Build Status| image:: https://dev.azure.com/statsmodels/statsmodels-testing/_apis/build/status/statsmodels.statsmodels?branch=master
    :target: https://dev.azure.com/statsmodels/statsmodels-testing/_build/latest?definitionId=1&branch=master
+.. |Appveyor Build Status| image:: https://ci.appveyor.com/api/projects/status/gx18sd2wc63mfcuc/branch/master?svg=true
+   :target: https://ci.appveyor.com/project/josef-pkt/statsmodels/branch/master
 .. |Coveralls Coverage| image:: https://coveralls.io/repos/github/statsmodels/statsmodels/badge.svg?branch=master
    :target: https://coveralls.io/github/statsmodels/statsmodels?branch=master
-.. |PyPI downloads| image:: https://img.shields.io/pypi/dm/statsmodels.svg?label=Pypi%20downloads
-   :target: https://pypi.org/project/statsmodels/
-.. |Conda downloads| image:: https://img.shields.io/conda/dn/conda-forge/statsmodels.svg?label=Conda%20downloads
-   :target: https://anaconda.org/conda-forge/statsmodels/
-.. |PyPI Version| image:: https://img.shields.io/pypi/v/statsmodels.svg
-   :target: https://pypi.org/project/statsmodels/
-.. |Conda Version| image:: https://anaconda.org/conda-forge/statsmodels/badges/version.svg
-   :target: https://anaconda.org/conda-forge/statsmodels/
-.. |License| image:: https://img.shields.io/pypi/l/statsmodels.svg
-   :target: https://github.com/statsmodels/statsmodels/blob/master/LICENSE.txt

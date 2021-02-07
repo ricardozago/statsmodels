@@ -130,6 +130,13 @@ _mice_data_example_1 = """
     ...     imp.update_all()
     ...     imp.data.to_csv('data%02d.csv' % j)"""
 
+_mice_data_example_2 = """
+    >>> imp = mice.MICEData(data)
+    >>> j = 0
+    >>> for data in imp:
+    ...     imp.data.to_csv('data%02d.csv' % j)
+    ...     j += 1"""
+
 
 class PatsyFormula(object):
     """
@@ -159,6 +166,20 @@ class MICEData(object):
         MICEData object is passed as the sole argument to
         `history_callback`.
 
+    Examples
+    --------
+    Draw 20 imputations from a data set called `data` and save them in
+    separate files with filename pattern `dataXX.csv`.  The variables
+    other than `x1` are imputed using linear models fit with OLS, with
+    mean structures containing main effects of all other variables in
+    `data`.  The variable named `x1` has a conditional mean structure
+    that includes an additional term for x2^2.
+    %(_mice_data_example_1)s
+
+    Impute using default models, using the MICEData object as an
+    iterator.
+    %(_mice_data_example_2)s
+
     Notes
     -----
     Allowed perturbation methods are 'gaussian' (the model parameters
@@ -169,17 +190,8 @@ class MICEData(object):
 
     `history_callback` can be implemented to have side effects such as
     saving the current imputed data set to disk.
-
-    Examples
-    --------
-    Draw 20 imputations from a data set called `data` and save them in
-    separate files with filename pattern `dataXX.csv`.  The variables
-    other than `x1` are imputed using linear models fit with OLS, with
-    mean structures containing main effects of all other variables in
-    `data`.  The variable named `x1` has a conditional mean structure
-    that includes an additional term for x2^2.
-    %(_mice_data_example_1)s
-    """ % {'_mice_data_example_1': _mice_data_example_1}
+    """ % {'_mice_data_example_1': _mice_data_example_1,
+           '_mice_data_example_2': _mice_data_example_2}
 
     def __init__(self, data, perturbation_method='gaussian',
                  k_pmm=20, history_callback=None):
@@ -1291,11 +1303,12 @@ class MICEResults(LikelihoodModelResults):
         """
 
         from statsmodels.iolib import summary2
+        from collections import OrderedDict
 
         smry = summary2.Summary()
         float_format = "%8.3f"
 
-        info = {}
+        info = OrderedDict()
         info["Method:"] = "MICE"
         info["Model:"] = self.model_class.__name__
         info["Dependent variable:"] = self.endog_names

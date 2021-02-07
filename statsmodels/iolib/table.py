@@ -82,7 +82,7 @@ Potential problems for Python 3
 :change: 2010-05-06 add `label_cells` to `SimpleTable`
 """
 
-from statsmodels.compat.python import lmap, lrange
+from statsmodels.compat.python import lmap, lrange, iteritems
 
 from itertools import cycle, zip_longest
 import csv
@@ -180,9 +180,7 @@ class SimpleTable(list):
             general formatting options
         """
         self.title = title
-        self._datatypes = datatypes
-        if self._datatypes is None:
-            self._datatypes = [] if len(data) == 0 else lrange(len(data[0]))
+        self._datatypes = datatypes or lrange(len(data[0]))
         # start with default formatting
         self._txt_fmt = default_txt_fmt.copy()
         self._latex_fmt = default_latex_fmt.copy()
@@ -329,11 +327,11 @@ class SimpleTable(list):
     def get_colwidths(self, output_format, **fmt_dict):
         """Return list, the widths of each column."""
         call_args = [output_format]
-        for k, v in sorted(fmt_dict.items()):
+        for k, v in sorted(iteritems(fmt_dict)):
             if isinstance(v, list):
                 call_args.append((k, tuple(v)))
             elif isinstance(v, dict):
-                call_args.append((k, tuple(sorted(v.items()))))
+                call_args.append((k, tuple(sorted(iteritems(v)))))
             else:
                 call_args.append((k, v))
         key = tuple(call_args)
@@ -722,13 +720,7 @@ class Cell(object):
             data_fmts = [data_fmt]
         if isinstance(datatype, int):
             datatype = datatype % len(data_fmts)  # constrain to indexes
-            data_fmt = data_fmts[datatype]
-            if isinstance(data_fmt, str):
-                content = data_fmt % (data,)
-            elif callable(data_fmt):
-                content = data_fmt(data)
-            else:
-                raise TypeError("Must be a string or a callable")
+            content = data_fmts[datatype] % (data,)
             if datatype == 0:
                 content = self._latex_escape(content, fmt, output_format)
         elif datatype in fmt:

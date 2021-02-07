@@ -980,7 +980,8 @@ def test_predict():
     # Check that an error is raised when a non-two-dimensional obs_cov
     # is given
     # ...and...
-    # Check that an error is raised when an obs_cov that is too short is given
+    # Check that an error is raised when an obs_cov with incorrect length
+    # is given
     mod = KalmanFilter(endog, k_states=1, initialization='approximate_diffuse')
     mod['design', :] = 1
     mod['obs_cov'] = np.zeros((1, 1, 10))
@@ -988,10 +989,10 @@ def test_predict():
     mod['state_cov', :] = 1
     res = mod.filter()
 
-    assert_raises(ValueError, res.predict, end=res.nobs + 2,
+    assert_raises(ValueError, res.predict, end=res.nobs+1,
                   obs_cov=np.zeros((1, 1)))
-    assert_raises(ValueError, res.predict, end=res.nobs + 2,
-                  obs_cov=np.zeros((1, 1, 1)))
+    assert_raises(ValueError, res.predict, end=res.nobs+1,
+                  obs_cov=np.zeros((1, 1, 2)))
 
 
 def test_standardized_forecasts_error():

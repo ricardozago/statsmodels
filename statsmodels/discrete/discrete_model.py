@@ -18,29 +18,28 @@ W. Greene. `Econometric Analysis`. Prentice Hall, 5th. edition. 2003.
 __all__ = ["Poisson", "Logit", "Probit", "MNLogit", "NegativeBinomial",
            "GeneralizedPoisson", "NegativeBinomialP", "CountModel"]
 
-from statsmodels.compat.pandas import Appender
-
-import warnings
-
 import numpy as np
-from pandas import MultiIndex, get_dummies
-from scipy import special, stats
-from scipy.special import digamma, gammaln, loggamma, polygamma
+from pandas import get_dummies, MultiIndex
+
+from scipy.special import gammaln, digamma, polygamma, loggamma
+from scipy import stats, special
 from scipy.stats import nbinom
 
-from statsmodels.base.data import handle_data  # for mnlogit
-from statsmodels.base.l1_slsqp import fit_l1_slsqp
-import statsmodels.base.model as base
-import statsmodels.base.wrapper as wrap
-from statsmodels.distributions import genpoisson_p
-import statsmodels.regression.linear_model as lm
-from statsmodels.tools import data as data_tools, tools
+from statsmodels.compat.pandas import Appender
+
+import statsmodels.tools.tools as tools
+from statsmodels.tools import data as data_tools
 from statsmodels.tools.decorators import cache_readonly
+from statsmodels.tools.sm_exceptions import (PerfectSeparationError,
+                                             SpecificationWarning)
 from statsmodels.tools.numdiff import approx_fprime_cs
-from statsmodels.tools.sm_exceptions import (
-    PerfectSeparationError,
-    SpecificationWarning,
-)
+import statsmodels.base.model as base
+from statsmodels.base.data import handle_data  # for mnlogit
+import statsmodels.regression.linear_model as lm
+import statsmodels.base.wrapper as wrap
+
+from statsmodels.base.l1_slsqp import fit_l1_slsqp
+from statsmodels.distributions import genpoisson_p
 
 try:
     import cvxopt  # noqa:F401
@@ -48,13 +47,14 @@ try:
 except ImportError:
     have_cvxopt = False
 
+import warnings
 
-# TODO: When we eventually get user-settable precision, we need to change
-#       this
+#TODO: When we eventually get user-settable precision, we need to change
+#      this
 FLOAT_EPS = np.finfo(float).eps
 
-# TODO: add options for the parameter covariance/variance
-#       ie., OIM, EIM, and BHHH see Green 21.4
+#TODO: add options for the parameter covariance/variance
+# ie., OIM, EIM, and BHHH see Green 21.4
 
 _discrete_models_docs = """
 """
@@ -100,26 +100,18 @@ params : ndarray
 
 """
 
-_check_rank_doc = """
-    check_rank : bool
-        Check exog rank to determine model degrees of freedom. Default is
-        True. Setting to False reduces model initialization time when
-        exog.shape[1] is large.
-    """
-
-
 # helper for MNLogit (will be generally useful later)
+
 def _numpy_to_dummies(endog):
-    if endog.ndim == 2 and endog.dtype.kind not in ["S", "O"]:
+    if endog.dtype.kind in ['S', 'O']:
+        endog_dummies, ynames = tools.categorical(endog, drop=True,
+                                                  dictnames=True)
+    elif endog.ndim == 2:
         endog_dummies = endog
         ynames = range(endog.shape[1])
     else:
-        dummies = get_dummies(endog, drop_first=False)
-        ynames = {i: dummies.columns[i] for i in range(dummies.shape[1])}
-        endog_dummies = np.asarray(dummies, dtype=float)
-
-        return endog_dummies, ynames
-
+        endog_dummies, ynames = tools.categorical(endog, drop=True,
+                                                  dictnames=True)
     return endog_dummies, ynames
 
 
@@ -169,10 +161,8 @@ class DiscreteModel(base.LikelihoodModel):
     call signature expected of child classes in addition to those of
     statsmodels.model.LikelihoodModel.
     """
-
-    def __init__(self, endog, exog, check_rank=True, **kwargs):
-        self._check_rank = check_rank
-        super().__init__(endog, exog, **kwargs)
+    def __init__(self, endog, exog, **kwargs):
+        super(DiscreteModel, self).__init__(endog, exog, **kwargs)
         self.raise_on_perfect_prediction = True
 
     def initialize(self):
@@ -181,12 +171,8 @@ class DiscreteModel(base.LikelihoodModel):
         statsmodels.model.LikelihoodModel.__init__
         and should contain any preprocessing that needs to be done for a model.
         """
-        if self._check_rank:
-            # assumes constant
-            rank = tools.matrix_rank(self.exog, method="qr")
-        else:
-            # If rank check is skipped, assume full
-            rank = self.exog.shape[1]
+        # assumes constant
+        rank = np.linalg.matrix_rank(self.exog)
         self.df_model = float(rank - 1)
         self.df_resid = float(self.exog.shape[0] - rank)
 
@@ -224,13 +210,10 @@ class DiscreteModel(base.LikelihoodModel):
         else:
             pass  # TODO: make a function factory to have multiple call-backs
 
-        mlefit = super().fit(start_params=start_params,
-                             method=method,
-                             maxiter=maxiter,
-                             full_output=full_output,
-                             disp=disp,
-                             callback=callback,
-                             **kwargs)
+        mlefit = super(DiscreteModel, self).fit(
+            start_params=start_params,
+            method=method, maxiter=maxiter, full_output=full_output,
+            disp=disp, callback=callback, **kwargs)
 
         return mlefit  # It is up to subclasses to wrap results
 
@@ -376,24 +359,19 @@ class DiscreteModel(base.LikelihoodModel):
             extra_fit_funcs['l1_cvxopt_cp'] = fit_l1_cvxopt_cp
         elif method.lower() == 'l1_cvxopt_cp':
             raise ValueError("Cannot use l1_cvxopt_cp as cvxopt "
-                             "was not found (install it, or use method='l1' instead)")
+                "was not found (install it, or use method='l1' instead)")
 
         if callback is None:
             callback = self._check_perfect_pred
         else:
-            pass  # make a function factory to have multiple call-backs
+            pass # make a function factory to have multiple call-backs
 
-        mlefit = super().fit(start_params=start_params,
-                             method=method,
-                             maxiter=maxiter,
-                             full_output=full_output,
-                             disp=disp,
-                             callback=callback,
-                             extra_fit_funcs=extra_fit_funcs,
-                             cov_params_func=cov_params_func,
-                             **kwargs)
+        mlefit = super(DiscreteModel, self).fit(start_params=start_params,
+                method=method, maxiter=maxiter, full_output=full_output,
+                disp=disp, callback=callback, extra_fit_funcs=extra_fit_funcs,
+                cov_params_func=cov_params_func, **kwargs)
 
-        return mlefit  # up to subclasses to wrap results
+        return mlefit # up to subclasses to wrap results
 
     def cov_params_func_l1(self, likelihood_model, xopt, retvals):
         """
@@ -451,18 +429,13 @@ class DiscreteModel(base.LikelihoodModel):
 
 
 class BinaryModel(DiscreteModel):
-    _continuous_ok = False
 
-    def __init__(self, endog, exog, check_rank=True, **kwargs):
-        super().__init__(endog, exog, check_rank, **kwargs)
+    def __init__(self, endog, exog, **kwargs):
+        super(BinaryModel, self).__init__(endog, exog, **kwargs)
+        if (not issubclass(self.__class__, MultinomialModel) and
+                not np.all((self.endog >= 0) & (self.endog <= 1))):
+            raise ValueError("endog must be in the unit interval.")
 
-        if not issubclass(self.__class__, MultinomialModel):
-            if not np.all((self.endog >= 0) & (self.endog <= 1)):
-                raise ValueError("endog must be in the unit interval.")
-
-            if (not self._continuous_ok and
-                    np.any(self.endog != np.round(self.endog))):
-                raise ValueError("endog must be binary, either 0 or 1")
 
     def predict(self, params, exog=None, linear=False):
         """
@@ -499,18 +472,11 @@ class BinaryModel(DiscreteModel):
 
         _validate_l1_method(method)
 
-        bnryfit = super().fit_regularized(start_params=start_params,
-                                          method=method,
-                                          maxiter=maxiter,
-                                          full_output=full_output,
-                                          disp=disp,
-                                          callback=callback,
-                                          alpha=alpha,
-                                          trim_mode=trim_mode,
-                                          auto_trim_tol=auto_trim_tol,
-                                          size_trim_tol=size_trim_tol,
-                                          qc_tol=qc_tol,
-                                          **kwargs)
+        bnryfit = super(BinaryModel, self).fit_regularized(
+                start_params=start_params, method=method, maxiter=maxiter,
+                full_output=full_output, disp=disp, callback=callback,
+                alpha=alpha, trim_mode=trim_mode, auto_trim_tol=auto_trim_tol,
+                size_trim_tol=size_trim_tol, qc_tol=qc_tol, **kwargs)
 
         discretefit = L1BinaryResults(self, bnryfit)
         return L1BinaryResultsWrapper(discretefit)
@@ -597,7 +563,7 @@ class MultinomialModel(BinaryModel):
         """
         Preprocesses the data for MNLogit.
         """
-        super().initialize()
+        super(MultinomialModel, self).initialize()
         # This is also a "whiten" method in other models (eg regression)
         self.endog = self.endog.argmax(1)  # turn it into an array of col idx
         self.J = self.wendog.shape[1]
@@ -633,7 +599,7 @@ class MultinomialModel(BinaryModel):
             exog = self.exog
         if exog.ndim == 1:
             exog = exog[None]
-        pred = super().predict(params, exog, linear)
+        pred = super(MultinomialModel, self).predict(params, exog, linear)
         if linear:
             pred = np.column_stack((np.zeros(len(exog)), pred))
         return pred
@@ -770,14 +736,12 @@ class MultinomialModel(BinaryModel):
 
 class CountModel(DiscreteModel):
     def __init__(self, endog, exog, offset=None, exposure=None, missing='none',
-                 check_rank=True, **kwargs):
-        super().__init__(endog, exog, check_rank, missing=missing,
-                         offset=offset, exposure=exposure, **kwargs)
+                 **kwargs):
+        super(CountModel, self).__init__(endog, exog, missing=missing,
+                                         offset=offset,
+                                         exposure=exposure, **kwargs)
         if exposure is not None:
-            self.exposure = np.asarray(self.exposure)
             self.exposure = np.log(self.exposure)
-        if offset is not None:
-            self.offset = np.asarray(self.offset)
         self._check_inputs(self.offset, self.exposure, self.endog)
         if offset is None:
             delattr(self, 'offset')
@@ -801,7 +765,7 @@ class CountModel(DiscreteModel):
     def _get_init_kwds(self):
         # this is a temporary fixup because exposure has been transformed
         # see #1609
-        kwds = super()._get_init_kwds()
+        kwds = super(CountModel, self)._get_init_kwds()
         if 'exposure' in kwds and kwds['exposure'] is not None:
             kwds['exposure'] = np.exp(kwds['exposure'])
         return kwds
@@ -911,13 +875,9 @@ class CountModel(DiscreteModel):
     @Appender(DiscreteModel.fit.__doc__)
     def fit(self, start_params=None, method='newton', maxiter=35,
             full_output=1, disp=1, callback=None, **kwargs):
-        cntfit = super().fit(start_params=start_params,
-                             method=method,
-                             maxiter=maxiter,
-                             full_output=full_output,
-                             disp=disp,
-                             callback=callback,
-                             **kwargs)
+        cntfit = super(CountModel, self).fit(start_params=start_params,
+                method=method, maxiter=maxiter, full_output=full_output,
+                disp=disp, callback=callback, **kwargs)
         discretefit = CountResults(self, cntfit)
         return CountResultsWrapper(discretefit)
 
@@ -929,21 +889,18 @@ class CountModel(DiscreteModel):
 
         _validate_l1_method(method)
 
-        cntfit = super().fit_regularized(start_params=start_params,
-                                         method=method,
-                                         maxiter=maxiter,
-                                         full_output=full_output,
-                                         disp=disp,
-                                         callback=callback,
-                                         alpha=alpha,
-                                         trim_mode=trim_mode, auto_trim_tol=auto_trim_tol,
-                                         size_trim_tol=size_trim_tol,
-                                         qc_tol=qc_tol,
-                                         **kwargs)
+        cntfit = super(CountModel, self).fit_regularized(
+                start_params=start_params, method=method, maxiter=maxiter,
+                full_output=full_output, disp=disp, callback=callback,
+                alpha=alpha, trim_mode=trim_mode, auto_trim_tol=auto_trim_tol,
+                size_trim_tol=size_trim_tol, qc_tol=qc_tol, **kwargs)
 
         discretefit = L1CountResults(self, cntfit)
         return L1CountResultsWrapper(discretefit)
 
+
+class OrderedModel(DiscreteModel):
+    pass
 
 # Public Model Classes
 
@@ -961,14 +918,14 @@ class Poisson(CountModel):
         A reference to the endogenous response variable
     exog : ndarray
         A reference to the exogenous design.
-    """ % {'params': base._model_params_doc,
-           'extra_params':
+    """ % {'params' : base._model_params_doc,
+           'extra_params' :
            """offset : array_like
         Offset is added to the linear prediction with coefficient equal to 1.
     exposure : array_like
         Log(exposure) is added to the linear prediction with coefficient
         equal to 1.
-        """ + base._missing_param_doc + _check_rank_doc}
+    """ + base._missing_param_doc}
 
     @property
     def family(self):
@@ -1104,12 +1061,8 @@ class Poisson(CountModel):
             start_params[self.data.const_idx] = self._get_start_params_null()[0]
 
         cntfit = super(CountModel, self).fit(start_params=start_params,
-                                             method=method,
-                                             maxiter=maxiter,
-                                             full_output=full_output,
-                                             disp=disp,
-                                             callback=callback,
-                                             **kwargs)
+                method=method, maxiter=maxiter, full_output=full_output,
+                disp=disp, callback=callback, **kwargs)
 
         if 'cov_type' in kwargs:
             cov_kwds = kwargs.get('cov_kwds', {})
@@ -1367,9 +1320,9 @@ class GeneralizedPoisson(CountModel):
         A reference to the endogenous response variable
     exog : ndarray
         A reference to the exogenous design.
-    """ % {'params': base._model_params_doc,
-           'extra_params':
-               """
+    """ % {'params' : base._model_params_doc,
+           'extra_params' :
+    """
     p : scalar
         P denotes parameterizations for GP regression. p=1 for GP-1 and
         p=2 for GP-2. Default is p=1.
@@ -1377,24 +1330,21 @@ class GeneralizedPoisson(CountModel):
         Offset is added to the linear prediction with coefficient equal to 1.
     exposure : array_like
         Log(exposure) is added to the linear prediction with coefficient
-        equal to 1.""" + base._missing_param_doc + _check_rank_doc}
+        equal to 1.
+    """ + base._missing_param_doc}
 
-    def __init__(self, endog, exog, p=1, offset=None,
-                 exposure=None, missing='none', check_rank=True, **kwargs):
-        super().__init__(endog,
-                         exog,
-                         offset=offset,
-                         exposure=exposure,
-                         missing=missing,
-                         check_rank=check_rank,
-                         **kwargs)
+    def __init__(self, endog, exog, p = 1, offset=None,
+                       exposure=None, missing='none', **kwargs):
+        super(GeneralizedPoisson, self).__init__(endog, exog, offset=offset,
+                                               exposure=exposure,
+                                               missing=missing, **kwargs)
         self.parameterization = p - 1
         self.exog_names.append('alpha')
         self.k_extra = 1
         self._transparams = False
 
     def _get_init_kwds(self):
-        kwds = super()._get_init_kwds()
+        kwds = super(GeneralizedPoisson, self)._get_init_kwds()
         kwds['p'] = self.parameterization + 1
         return kwds
 
@@ -1511,9 +1461,7 @@ class GeneralizedPoisson(CountModel):
                                  'warn_convergence': False}
             optim_kwds_prelim.update(kwargs.get('optim_kwds_prelim', {}))
             mod_poi = Poisson(self.endog, self.exog, offset=offset)
-            with warnings.catch_warnings():
-                warnings.simplefilter("always")
-                res_poi = mod_poi.fit(**optim_kwds_prelim)
+            res_poi = mod_poi.fit(**optim_kwds_prelim)
             start_params = res_poi.params
             a = self._estimate_dispersion(res_poi.predict(), res_poi.resid,
                                           df_resid=res_poi.df_resid)
@@ -1523,13 +1471,10 @@ class GeneralizedPoisson(CountModel):
             # work around perfect separation callback #3895
             callback = lambda *x: x
 
-        mlefit = super().fit(start_params=start_params,
-                             maxiter=maxiter,
-                             method=method,
-                             disp=disp,
-                             full_output=full_output,
-                             callback=callback,
-                             **kwargs)
+        mlefit = super(GeneralizedPoisson, self).fit(start_params=start_params,
+                        maxiter=maxiter, method=method, disp=disp,
+                        full_output=full_output, callback=callback,
+                        **kwargs)
 
         if use_transparams and method not in ["newton", "ncg"]:
             self._transparams = False
@@ -1565,14 +1510,11 @@ class GeneralizedPoisson(CountModel):
             if np.size(offset) == 1 and offset == 0:
                 offset = None
             mod_poi = Poisson(self.endog, self.exog, offset=offset)
-            with warnings.catch_warnings():
-                warnings.simplefilter("always")
-                start_params = mod_poi.fit_regularized(
-                    start_params=start_params, method=method, maxiter=maxiter,
-                    full_output=full_output, disp=0, callback=callback,
-                    alpha=alpha_p, trim_mode=trim_mode,
-                    auto_trim_tol=auto_trim_tol, size_trim_tol=size_trim_tol,
-                    qc_tol=qc_tol, **kwargs).params
+            start_params = mod_poi.fit_regularized(
+                start_params=start_params, method=method, maxiter=maxiter,
+                full_output=full_output, disp=0, callback=callback,
+                alpha=alpha_p, trim_mode=trim_mode, auto_trim_tol=auto_trim_tol,
+                size_trim_tol=size_trim_tol, qc_tol=qc_tol, **kwargs).params
             start_params = np.append(start_params, 0.1)
 
         cntfit = super(CountModel, self).fit_regularized(
@@ -1777,10 +1719,8 @@ class Logit(BinaryModel):
         A reference to the endogenous response variable
     exog : ndarray
         A reference to the exogenous design.
-    """ % {'params': base._model_params_doc,
-           'extra_params': base._missing_param_doc + _check_rank_doc}
-
-    _continuous_ok = True
+    """ % {'params' : base._model_params_doc,
+           'extra_params' : base._missing_param_doc}
 
     def cdf(self, X):
         """
@@ -1968,13 +1908,9 @@ class Logit(BinaryModel):
     @Appender(DiscreteModel.fit.__doc__)
     def fit(self, start_params=None, method='newton', maxiter=35,
             full_output=1, disp=1, callback=None, **kwargs):
-        bnryfit = super().fit(start_params=start_params,
-                              method=method,
-                              maxiter=maxiter,
-                              full_output=full_output,
-                              disp=disp,
-                              callback=callback,
-                              **kwargs)
+        bnryfit = super(Logit, self).fit(start_params=start_params,
+                method=method, maxiter=maxiter, full_output=full_output,
+                disp=disp, callback=callback, **kwargs)
 
         discretefit = LogitResults(self, bnryfit)
         return BinaryResultsWrapper(discretefit)
@@ -1993,8 +1929,8 @@ class Probit(BinaryModel):
         A reference to the endogenous response variable
     exog : ndarray
         A reference to the exogenous design.
-    """ % {'params': base._model_params_doc,
-           'extra_params': base._missing_param_doc + _check_rank_doc}
+    """ % {'params' : base._model_params_doc,
+           'extra_params' : base._missing_param_doc}
 
     def cdf(self, X):
         """
@@ -2192,13 +2128,9 @@ class Probit(BinaryModel):
     @Appender(DiscreteModel.fit.__doc__)
     def fit(self, start_params=None, method='newton', maxiter=35,
             full_output=1, disp=1, callback=None, **kwargs):
-        bnryfit = super().fit(start_params=start_params,
-                              method=method,
-                              maxiter=maxiter,
-                              full_output=full_output,
-                              disp=disp,
-                              callback=callback,
-                              **kwargs)
+        bnryfit = super(Probit, self).fit(start_params=start_params,
+                method=method, maxiter=maxiter, full_output=full_output,
+                disp=disp, callback=callback, **kwargs)
         discretefit = ProbitResults(self, bnryfit)
         return BinaryResultsWrapper(discretefit)
 
@@ -2244,10 +2176,10 @@ class MNLogit(MultinomialModel):
     Notes
     -----
     See developer notes for further information on `MNLogit` internals.
-    """ % {'extra_params': base._missing_param_doc + _check_rank_doc}
+    """ % {'extra_params': base._missing_param_doc}
 
-    def __init__(self, endog, exog, check_rank=True, **kwargs):
-        super().__init__(endog, exog, check_rank=check_rank, **kwargs)
+    def __init__(self, endog, exog, **kwargs):
+        super(MNLogit, self).__init__(endog, exog, **kwargs)
 
         # Override cov_names since multivariate model
         yname = self.endog_names
@@ -2572,17 +2504,12 @@ class NegativeBinomial(CountModel):
     exposure : array_like
         Log(exposure) is added to the linear prediction with coefficient
         equal to 1.
-    """ + base._missing_param_doc + _check_rank_doc}
-
+    """ + base._missing_param_doc}
     def __init__(self, endog, exog, loglike_method='nb2', offset=None,
-                 exposure=None, missing='none', check_rank=True, **kwargs):
-        super().__init__(endog,
-                         exog,
-                         offset=offset,
-                         exposure=exposure,
-                         missing=missing,
-                         check_rank=check_rank,
-                         **kwargs)
+                 exposure=None, missing='none', **kwargs):
+        super(NegativeBinomial, self).__init__(endog, exog, offset=offset,
+                                               exposure=exposure,
+                                               missing=missing, **kwargs)
         self.loglike_method = loglike_method
         self._initialize()
         if loglike_method in ['nb2', 'nb1']:
@@ -2922,9 +2849,7 @@ class NegativeBinomial(CountModel):
                                  'warn_convergence': False}
             optim_kwds_prelim.update(kwargs.get('optim_kwds_prelim', {}))
             mod_poi = Poisson(self.endog, self.exog, offset=offset)
-            with warnings.catch_warnings():
-                warnings.simplefilter("always")
-                res_poi = mod_poi.fit(**optim_kwds_prelim)
+            res_poi = mod_poi.fit(**optim_kwds_prelim)
             start_params = res_poi.params
             if self.loglike_method.startswith('nb'):
                 a = self._estimate_dispersion(res_poi.predict(), res_poi.resid,
@@ -2940,10 +2865,10 @@ class NegativeBinomial(CountModel):
             # work around perfect separation callback #3895
             callback = lambda *x: x
 
-        mlefit = super().fit(start_params=start_params,
-                             maxiter=maxiter, method=method, disp=disp,
-                             full_output=full_output, callback=callback,
-                             **kwargs)
+        mlefit = super(NegativeBinomial, self).fit(start_params=start_params,
+                        maxiter=maxiter, method=method, disp=disp,
+                        full_output=full_output, callback=callback,
+                        **kwargs)
                         # TODO: Fix NBin _check_perfect_pred
         if self.loglike_method.startswith('nb'):
             # mlefit is a wrapped counts results
@@ -2989,14 +2914,11 @@ class NegativeBinomial(CountModel):
             if np.size(offset) == 1 and offset == 0:
                 offset = None
             mod_poi = Poisson(self.endog, self.exog, offset=offset)
-            with warnings.catch_warnings():
-                warnings.simplefilter("always")
-                start_params = mod_poi.fit_regularized(
-                    start_params=start_params, method=method, maxiter=maxiter,
-                    full_output=full_output, disp=0, callback=callback,
-                    alpha=alpha_p, trim_mode=trim_mode,
-                    auto_trim_tol=auto_trim_tol, size_trim_tol=size_trim_tol,
-                    qc_tol=qc_tol, **kwargs).params
+            start_params = mod_poi.fit_regularized(
+                start_params=start_params, method=method, maxiter=maxiter,
+                full_output=full_output, disp=0, callback=callback,
+                alpha=alpha_p, trim_mode=trim_mode, auto_trim_tol=auto_trim_tol,
+                size_trim_tol=size_trim_tol, qc_tol=qc_tol, **kwargs).params
             if self.loglike_method.startswith('nb'):
                 start_params = np.append(start_params, 0.1)
 
@@ -3026,9 +2948,9 @@ class NegativeBinomialP(CountModel):
     p : scalar
         P denotes parameterizations for NB-P regression. p=1 for NB-1 and
         p=2 for NB-2. Default is p=1.
-    """ % {'params': base._model_params_doc,
-           'extra_params':
-               """p : scalar
+    """ % {'params' : base._model_params_doc,
+           'extra_params' :
+           """p : scalar
         P denotes parameterizations for NB regression. p=1 for NB-1 and
         p=2 for NB-2. Default is p=2.
     offset : array_like
@@ -3036,25 +2958,20 @@ class NegativeBinomialP(CountModel):
     exposure : array_like
         Log(exposure) is added to the linear prediction with coefficient
         equal to 1.
-        """ + base._missing_param_doc + _check_rank_doc}
+    """ + base._missing_param_doc}
 
     def __init__(self, endog, exog, p=2, offset=None,
-                 exposure=None, missing='none', check_rank=True,
-                 **kwargs):
-        super().__init__(endog,
-                         exog,
-                         offset=offset,
-                         exposure=exposure,
-                         missing=missing,
-                         check_rank=check_rank,
-                         **kwargs)
+                       exposure=None, missing='none', **kwargs):
+        super(NegativeBinomialP, self).__init__(endog, exog, offset=offset,
+                                                  exposure=exposure,
+                                                  missing=missing, **kwargs)
         self.parameterization = p
         self.exog_names.append('alpha')
         self.k_extra = 1
         self._transparams = False
 
     def _get_init_kwds(self):
-        kwds = super()._get_init_kwds()
+        kwds = super(NegativeBinomialP, self)._get_init_kwds()
         kwds['p'] = self.parameterization
         return kwds
 
@@ -3303,9 +3220,7 @@ class NegativeBinomialP(CountModel):
                                  'warn_convergence': False}
             optim_kwds_prelim.update(kwargs.get('optim_kwds_prelim', {}))
             mod_poi = Poisson(self.endog, self.exog, offset=offset)
-            with warnings.catch_warnings():
-                warnings.simplefilter("always")
-                res_poi = mod_poi.fit(**optim_kwds_prelim)
+            res_poi = mod_poi.fit(**optim_kwds_prelim)
             start_params = res_poi.params
             a = self._estimate_dispersion(res_poi.predict(), res_poi.resid,
                                           df_resid=res_poi.df_resid)
@@ -3354,14 +3269,11 @@ class NegativeBinomialP(CountModel):
             if np.size(offset) == 1 and offset == 0:
                 offset = None
             mod_poi = Poisson(self.endog, self.exog, offset=offset)
-            with warnings.catch_warnings():
-                warnings.simplefilter("always")
-                start_params = mod_poi.fit_regularized(
-                    start_params=start_params, method=method, maxiter=maxiter,
-                    full_output=full_output, disp=0, callback=callback,
-                    alpha=alpha_p, trim_mode=trim_mode,
-                    auto_trim_tol=auto_trim_tol, size_trim_tol=size_trim_tol,
-                    qc_tol=qc_tol, **kwargs).params
+            start_params = mod_poi.fit_regularized(
+                start_params=start_params, method=method, maxiter=maxiter,
+                full_output=full_output, disp=0, callback=callback,
+                alpha=alpha_p, trim_mode=trim_mode, auto_trim_tol=auto_trim_tol,
+                size_trim_tol=size_trim_tol, qc_tol=qc_tol, **kwargs).params
             start_params = np.append(start_params, 0.1)
 
         cntfit = super(CountModel, self).fit_regularized(

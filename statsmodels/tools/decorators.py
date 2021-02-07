@@ -148,3 +148,8 @@ cached_data = PandasCacheReadonly
 #     pass
 
 cached_value = PandasCacheReadonly
+
+
+def nottest(fn):
+    fn.__test__ = False
+    return fn

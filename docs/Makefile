@@ -45,8 +45,7 @@ html:
 	$(TOOLSPATH)$(DATASETBUILD)
 	@echo "Executing notebooks from examples/notebooks folder"
 	mkdir -p $(BUILDDIR)/source/examples/notebooks/generated
-	# Black list notebooks from doc build here
-	$(TOOLSPATH)$(NOTEBOOKBUILD) --parallel --report-errors --skip-existing --execute-only --execution-blacklist statespace_custom_models
+	$(TOOLSPATH)$(NOTEBOOKBUILD) --parallel --report-errors --skip-existing --execute-only
 	@echo "Running sphinx-build"
 	@echo @$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(ALLSPHINXOPTS) $(O)
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(ALLSPHINXOPTS) $(O)

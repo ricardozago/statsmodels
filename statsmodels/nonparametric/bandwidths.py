@@ -1,11 +1,10 @@
 import numpy as np
-from scipy.stats import scoreatpercentile
+from scipy.stats import scoreatpercentile as sap
 
 from statsmodels.compat.pandas import Substitution
 from statsmodels.sandbox.nonparametric import kernels
 
-
-def _select_sigma(x, percentile=25):
+def _select_sigma(X):
     """
     Returns the smaller of std(X, ddof=1) or normalized IQR(X) over axis 0.
 
@@ -13,14 +12,12 @@ def _select_sigma(x, percentile=25):
     ----------
     Silverman (1986) p.47
     """
-    # normalize = norm.ppf(.75) - norm.ppf(.25)
+#    normalize = norm.ppf(.75) - norm.ppf(.25)
     normalize = 1.349
-    IQR = (scoreatpercentile(x, 75) - scoreatpercentile(x, 25)) / normalize
-    std_dev = np.std(x, axis=0, ddof=1)
-    if IQR > 0:
-        return np.minimum(std_dev, IQR)
-    else:
-        return std_dev
+#    IQR = np.subtract.reduce(percentile(X, [75,25],
+#                             axis=axis), axis=axis)/normalize
+    IQR = (sap(X, 75) - sap(X, 25))/normalize
+    return np.minimum(np.std(X, axis=0, ddof=1), IQR)
 
 
 ## Univariate Rule of Thumb Bandwidths ##
@@ -90,7 +87,7 @@ def bw_silverman(x, kernel=None):
     return .9 * A * n ** (-0.2)
 
 
-def bw_normal_reference(x, kernel=None):
+def bw_normal_reference(x, kernel=kernels.Gaussian):
     """
     Plug-in bandwidth with kernel specific constant based on normal reference.
 
@@ -104,7 +101,6 @@ def bw_normal_reference(x, kernel=None):
         Array for which to get the bandwidth
     kernel : CustomKernel object
         Used to calculate the constant for the plug-in bandwidth.
-        The default is a Gaussian kernel.
 
     Returns
     -------
@@ -129,8 +125,6 @@ def bw_normal_reference(x, kernel=None):
     Silverman, B.W. (1986) `Density Estimation.`
     Hansen, B.E. (2009) `Lecture Notes on Nonparametrics.`
     """
-    if kernel is None:
-        kernel = kernels.Gaussian()
     C = kernel.normal_reference_constant
     A = _select_sigma(x)
     n = len(x)
@@ -176,9 +170,7 @@ def select_bandwidth(x, bw, kernel):
     bandwidth = bandwidth_funcs[bw](x, kernel)
     if np.any(bandwidth == 0):
         # eventually this can fall back on another selection criterion.
-        err = "Selected KDE bandwidth is 0. Cannot estimate density. " \
-              "Either provide the bandwidth during initialization or use " \
-              "an alternative method."
+        err = "Selected KDE bandwidth is 0. Cannot estimate density."
         raise RuntimeError(err)
     else:
         return bandwidth

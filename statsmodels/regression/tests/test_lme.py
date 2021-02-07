@@ -157,10 +157,7 @@ class TestMixedLM(object):
             # about the Hessian for the square root
             # transformed parameter).
             if (profile_fe is False) and (use_sqrt is False):
-                hess, sing = model.hessian(rslt.params_object)
-                if sing:
-                    pytest.fail("hessian should not be singular")
-                hess *= -1
+                hess = -model.hessian(rslt.params_object)
                 params_vec = rslt.params_object.get_packed(
                     use_sqrt=False, has_fe=True)
                 loglike_h = loglike_function(
@@ -472,7 +469,7 @@ class TestMixedLM(object):
         data = pd.read_csv(fname)
         model = MixedLM.from_formula(
             "Weight ~ Time", groups="Pig", re_formula="1 + Time", data=data)
-        result = model.fit(method="cg")
+        result = model.fit(method='powell')
 
         # fixef(r)
         assert_allclose(
@@ -499,7 +496,7 @@ class TestMixedLM(object):
         data = pd.read_csv(fname)
         model = MixedLM.from_formula(
             "Weight ~ Time", groups="Pig", re_formula="1 + Time", data=data)
-        result = model.fit(method='cg', reml=False)
+        result = model.fit(method='powell', reml=False)
 
         # fixef(r)
         assert_allclose(result.fe_params, np.r_[15.73863, 6.93902], rtol=1e-5)
@@ -1092,14 +1089,14 @@ def test_random_effects_getters():
         b.append(bb)
 
         # First variance component
-        vv0 = np.kron(np.r_[0, 1], np.ones(m // 2)).astype(int)
+        vv0 = np.kron(np.r_[0, 1], np.ones(m // 2)).astype(np.int)
         cc0 = np.random.normal(size=2)
         yy += cc0[vv0]
         v0.append(vv0)
         c0.append(cc0)
 
         # Second variance component
-        vv1 = np.kron(np.ones(m // 2), np.r_[0, 1]).astype(int)
+        vv1 = np.kron(np.ones(m // 2), np.r_[0, 1]).astype(np.int)
         cc1 = np.random.normal(size=2)
         yy += cc1[vv1]
         v1.append(vv1)
@@ -1238,24 +1235,6 @@ class TestSMWLogdet(object):
         check_smw_logdet(p, q, r, s)
 
 
-def test_singular():
-    # Issue #7051
-
-    np.random.seed(3423)
-    n = 100
-
-    data = np.random.randn(n, 2)
-    df = pd.DataFrame(data, columns=['Y', 'X'])
-    df['class'] = pd.Series([i % 3 for i in df.index], index=df.index)
-
-    with pytest.warns(Warning) as wrn:
-        md = MixedLM.from_formula("Y ~ X", df, groups=df['class'])
-        mdf = md.fit()
-        mdf.summary()
-        if not wrn:
-            pytest.fail("warning expected")
-
-
 def test_get_distribution():
 
     np.random.seed(234)
@@ -1272,7 +1251,7 @@ def test_get_distribution():
     exog_vca = np.random.normal(size=(n, 2))
     exog_vcb = np.random.normal(size=(n, 2))
 
-    groups = np.repeat(np.arange(n_groups, dtype=int),
+    groups = np.repeat(np.arange(n_groups, dtype=np.int),
                        n / n_groups)
 
     ey = np.dot(exog_fe, fe_params)

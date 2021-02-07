@@ -8,6 +8,7 @@ License: Simplified-BSD
 """
 
 from warnings import warn
+from collections import OrderedDict
 
 import numpy as np
 
@@ -105,11 +106,6 @@ class UnobservedComponents(MLEModel):
         states. Default is False (in which case approximate diffuse
         initialization is used).
 
-    See Also
-    --------
-    statsmodels.tsa.statespace.structural.UnobservedComponentsResults
-    statsmodels.tsa.statespace.mlemodel.MLEModel
-
     Notes
     -----
 
@@ -160,11 +156,11 @@ class UnobservedComponents(MLEModel):
     +----------------------------------+--------------------------------------+--------------------+--------------------------------------------------+
     | Model name                       | Full string syntax                   | Abbreviated syntax | Model                                            |
     +==================================+======================================+====================+==================================================+
-    | No trend                         | `'irregular'`                        | `'ntrend'`         | .. math:: y_t = \varepsilon_t                    |
+    | No trend                         | `'irregular'`                        | `'ntrend'`         | .. math:: y_t &= \varepsilon_t                   |
     +----------------------------------+--------------------------------------+--------------------+--------------------------------------------------+
-    | Fixed intercept                  | `'fixed intercept'`                  |                    | .. math:: y_t = \mu                              |
+    | Fixed intercept                  | `'fixed intercept'`                  |                    | .. math:: y_t &= \mu                             |
     +----------------------------------+--------------------------------------+--------------------+--------------------------------------------------+
-    | Deterministic constant           | `'deterministic constant'`           | `'dconstant'`      | .. math:: y_t = \mu + \varepsilon_t              |
+    | Deterministic constant           | `'deterministic constant'`           | `'dconstant'`      | .. math:: y_t &= \mu + \varepsilon_t             |
     +----------------------------------+--------------------------------------+--------------------+--------------------------------------------------+
     | Local level                      | `'local level'`                      | `'llevel'`         | .. math:: y_t &= \mu_t + \varepsilon_t \\        |
     |                                  |                                      |                    |     \mu_t &= \mu_{t-1} + \eta_t                  |
@@ -224,7 +220,7 @@ class UnobservedComponents(MLEModel):
     time series is available in the results class in the `seasonal`
     attribute.
 
-    **Frequency-domain Seasonal**
+    ** Frequency-domain Seasonal**
 
     Each frequency-domain seasonal component is modeled as:
 
@@ -253,7 +249,7 @@ class UnobservedComponents(MLEModel):
     This component results in one parameter to be fitted using maximum
     likelihood: :math:`\sigma_{\omega^2}`, and up to two parameters to be
     chosen, the number of seasons s and optionally the number of harmonics
-    h, with :math:`1 \leq h \leq \lfloor s/2 \rfloor`.
+    h, with :math:`1 \leq h \leq \floor(s/2)`.
 
     After fitting the model, each unobserved seasonal component modeled in the
     frequency domain is available in the results class in the `freq_seasonal`
@@ -643,11 +639,11 @@ class UnobservedComponents(MLEModel):
         Setup the structural time series representation
         """
         # Initialize the ordered sets of parameters
-        self.parameters = {}
-        self.parameters_obs_intercept = {}
-        self.parameters_obs_cov = {}
-        self.parameters_transition = {}
-        self.parameters_state_cov = {}
+        self.parameters = OrderedDict()
+        self.parameters_obs_intercept = OrderedDict()
+        self.parameters_obs_cov = OrderedDict()
+        self.parameters_transition = OrderedDict()
+        self.parameters_state_cov = OrderedDict()
 
         # Initialize the fixed components of the state space matrices,
         i = 0  # state offset
@@ -768,7 +764,7 @@ class UnobservedComponents(MLEModel):
         # Some of the variances may be tied together (repeated parameter usage)
         # Use list() for compatibility with python 3.5
         param_keys = list(self.parameters_state_cov.keys())
-        self._var_repetitions = np.ones(self.k_state_cov, dtype=int)
+        self._var_repetitions = np.ones(self.k_state_cov, dtype=np.int)
         if self.freq_seasonal:
             for ix, is_stochastic in enumerate(self.stochastic_freq_seasonal):
                 if is_stochastic:
@@ -1562,10 +1558,6 @@ class UnobservedComponentsResults(MLEResults):
             results are available otherwise 'filtered'.
         alpha : float, optional
             The confidence intervals for the components are (1 - alpha) %
-        observed : bool, optional
-            Whether or not to plot the observed series against
-            one-step-ahead predictions.
-            Default is True.
         level : bool, optional
             Whether or not to plot the level component, if applicable.
             Default is True.
@@ -1575,7 +1567,7 @@ class UnobservedComponentsResults(MLEResults):
         seasonal : bool, optional
             Whether or not to plot the seasonal component, if applicable.
             Default is True.
-        freq_seasonal : bool, optional
+        freq_seasonal: bool, optional
             Whether or not to plot the frequency domain seasonal component(s),
             if applicable. Default is True.
         cycle : bool, optional
@@ -1638,7 +1630,7 @@ class UnobservedComponentsResults(MLEResults):
             [('cycle', cycle and spec.cycle),
              ('autoregressive', autoregressive and spec.autoregressive)])
 
-        components = dict(comp)
+        components = OrderedDict(comp)
 
         llb = self.filter_results.loglikelihood_burn
 

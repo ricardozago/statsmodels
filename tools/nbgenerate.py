@@ -6,7 +6,6 @@ import hashlib
 import io
 import json
 import os
-import shutil
 import sys
 
 from colorama import Fore, init
@@ -137,9 +136,6 @@ def do_one(nb, to=None, execute=None, timeout=None, kernel_name=None,
                 print(Fore.RESET)
             if error_fail:
                 raise
-    elif not execute:
-        print("Copying (without executing) %s to %s" % (nb, dst))
-        shutil.copy(nb, dst)
 
     if execute_only:
         with open(hash_file, encoding="utf-8", mode="w") as hf:
@@ -162,19 +158,11 @@ def do_one(nb, to=None, execute=None, timeout=None, kernel_name=None,
 
 def do(fp=None, directory=None, to='html', execute=True, timeout=1000,
        kernel_name='', parallel=False, report_errors=True, error_fail=False,
-       skip_existing=False, execute_only=False, skip_specific=()):
+       skip_existing=False, execute_only=False):
     if fp is None:
         nbs = find_notebooks(directory)
     else:
         nbs = [fp]
-
-    nbs = list(nbs)
-    skip = set()
-    for nb in nbs:
-        for skip_nb in skip_specific:
-            if skip_nb in nb:
-                skip.add(nb)
-    nbs = [nb for nb in nbs if nb not in skip]
 
     if kernel_name is None:
         kernel_name = find_kernel_name()
@@ -192,14 +180,6 @@ def do(fp=None, directory=None, to='html', execute=True, timeout=1000,
         for nb in nbs:
             func(nb)
             print("Finished %s" % nb)
-
-    skip_func = partial(do_one, to=to, execute=False, timeout=timeout,
-                        kernel_name=kernel_name, report_error=report_errors,
-                        error_fail=error_fail, skip_existing=skip_existing,
-                        execute_only=execute_only)
-    for nb in skip:
-        skip_func(nb)
-        print("Finished (without execution) %s" % nb)
 
 
 def find_kernel_name():
@@ -242,10 +222,6 @@ parser.add_argument('--skip-existing', dest='skip_existing',
                     action='store_true',
                     help='Skip execution of an executed file exists and '
                          'is newer than the notebook.')
-parser.add_argument('--execution-blacklist', type=str, default=None,
-                    help='Comma separated list of notebook names to skip, e.g,'
-                         'slow-notebook.ipynb,other-notebook.ipynb')
-
 parser.set_defaults(parallel=True, skip_execution=False,
                     report_errors=True, error_fail=False,
                     skip_existing=False)
@@ -253,8 +229,6 @@ parser.set_defaults(parallel=True, skip_execution=False,
 
 def main():
     args = parser.parse_args()
-    skip_nb_exec = args.execution_blacklist
-    skip_specific = skip_nb_exec.split(",") if skip_nb_exec else []
     do(fp=args.fp,
        directory=args.directory,
        to=args.to,
@@ -265,8 +239,7 @@ def main():
        report_errors=args.report_errors,
        error_fail=args.error_fail,
        skip_existing=args.skip_existing,
-       execute_only=args.execute_only,
-       skip_specific=skip_specific)
+       execute_only=args.execute_only)
 
 
 if __name__ == '__main__':

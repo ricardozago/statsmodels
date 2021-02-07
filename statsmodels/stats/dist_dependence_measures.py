@@ -14,14 +14,13 @@ References
    Annals of Statistics, Vol. 35 No. 6, pp. 2769-2794.
 
 """
-from collections import namedtuple
-import warnings
-
 import numpy as np
+import warnings
+from collections import namedtuple
+
 from scipy.spatial.distance import pdist, squareform
 from scipy.stats import norm
 
-from statsmodels.tools.sm_exceptions import HypothesisTestWarning
 
 DistDependStat = namedtuple(
     "DistDependStat",
@@ -132,10 +131,10 @@ def distance_covariance_test(x, y, B=None, method="auto"):
     # to the asymptotic approximation.
     if chosen_method == "emp" and pval in [0, 1]:
         msg = (
-            f"p-value was {pval} when using the empirical method. "
-            "The asymptotic approximation will be used instead"
+            "p-value was {} when using the empirical method. ".format(pval)
+            + "The asymptotic approximation will be used instead"
         )
-        warnings.warn(msg, HypothesisTestWarning)
+        warnings.warn(msg)
         _, pval = _asymptotic_pvalue(stats)
 
     return test_statistic, pval, chosen_method
@@ -213,7 +212,7 @@ def _empirical_pvalue(x, y, B, n, stats):
     -------
     test_statistic : float
         The empirical test statistic.
-    pval : float
+    pval: float
         The empirical p-value.
 
     """
@@ -240,7 +239,7 @@ def _asymptotic_pvalue(stats):
     -------
     test_statistic : float
         The test statistic.
-    pval : float
+    pval: float
         The asymptotic p-value.
 
     """

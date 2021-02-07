@@ -48,16 +48,6 @@ Correlation Plots
 
    scatter_ellipse
 
-Dot Plots
----------
-
-.. currentmodule:: statsmodels.graphics.dotplots
-
-.. autosummary::
-   :toctree: generated/
-
-   dot_plot
-
 Functional Plots
 ----------------
 

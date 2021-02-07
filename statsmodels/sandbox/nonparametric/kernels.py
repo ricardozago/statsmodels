@@ -449,7 +449,7 @@ class Biweight(CustomKernel):
         xs and y-values ys.
         Not expected to be called by the user.
 
-        Special implementation optimized for Biweight.
+        Special implementation optimised for Biweight.
         """
         xs, ys = self.in_domain(xs, ys, x)
 
@@ -527,7 +527,7 @@ class Gaussian(CustomKernel):
         xs and y-values ys.
         Not expected to be called by the user.
 
-        Special implementation optimized for Gaussian.
+        Special implementation optimised for Gaussian.
         """
         w = np.sum(exp(multiply(square(divide(subtract(xs, x),
                                               self.h)),-0.5)))

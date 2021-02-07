@@ -45,7 +45,7 @@ def notebook(request):
 
 
 if not nbs:
-    pytestmark = pytest.mark.skip(reason='No notebooks found so no tests run')
+    pytestmark = pytest.mark.skip(reason='No notebooks found so not tests run')
 
 
 @pytest.mark.slow

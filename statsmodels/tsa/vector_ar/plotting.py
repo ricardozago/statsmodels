@@ -1,7 +1,5 @@
 from statsmodels.compat.python import lrange
-
 import numpy as np
-
 import statsmodels.tsa.vector_ar.util as util
 
 

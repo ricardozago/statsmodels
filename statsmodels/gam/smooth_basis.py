@@ -616,7 +616,7 @@ class UnivariateCubicCyclicSplines(UnivariateGamSmoother):
     x : ndarray, 1-D
         underlying explanatory variable for smooth terms.
     df : int
-        number of basis functions or degrees of freedom
+        numer of basis functions or degrees of freedom
     degree : int
         degree of the spline
     include_intercept : bool
@@ -668,16 +668,10 @@ class UnivariateCubicCyclicSplines(UnivariateGamSmoother):
 
         Returns
         -------
-        b : ndarray
-            Array for mapping cyclic cubic spline values at knots to
+        b, d: ndarrays
+            arrays for mapping cyclic cubic spline values at knots to
             second derivatives.
-        d : ndarray
-            Array for mapping cyclic cubic spline values at knots to
-            second derivatives.
-
-        Notes
-        -----
-        The penalty matrix is equal to ``s = d.T.dot(b^-1).dot(d)``
+            penalty matrix is equal to ``s = d.T.dot(b^-1).dot(d)``
         """
         h = knots[1:] - knots[:-1]
         n = knots.size - 1
@@ -792,8 +786,6 @@ class AdditiveGamSmoother(with_metaclass(ABCMeta)):
         basis : ndarray
             design matrix for the spline basis for given ``x_new``.
         """
-        if x_new.ndim == 1 and self.k_variables == 1:
-            x_new = x_new.reshape(-1, 1)
         exog = np.hstack(list(self.smoothers[i].transform(x_new[:, i])
                          for i in range(self.k_variables)))
         return exog
@@ -841,13 +833,10 @@ class BSplines(AdditiveGamSmoother):
         underlying explanatory variable for smooth terms.
         If 2-dimensional, then observations should be in rows and
         explanatory variables in columns.
-    df :  {int, array_like[int]}
-        number of basis functions or degrees of freedom; should be equal
-        in length to the number of columns of `x`; may be an integer if
-        `x` has one column or is 1-D.
-    degree : {int, array_like[int]}
-        degree(s) of the spline; the same length and type rules apply as
-        to `df`
+    df :  int
+        numer of basis functions or degrees of freedom
+    degree : int
+        degree of the spline
     include_intercept : bool
         If False, then the basis functions are transformed so that they
         do not include a constant. This avoids perfect collinearity if
@@ -912,14 +901,8 @@ class BSplines(AdditiveGamSmoother):
     """
     def __init__(self, x, df, degree, include_intercept=False,
                  constraints=None, variable_names=None, knot_kwds=None):
-        if isinstance(degree, int):
-            self.degrees = np.array([degree], dtype=int)
-        else:
-            self.degrees = degree
-        if isinstance(df, int):
-            self.dfs = np.array([df], dtype=int)
-        else:
-            self.dfs = df
+        self.degrees = degree
+        self.dfs = df
         self.knot_kwds = knot_kwds
         # TODO: move attaching constraints to super call
         self.constraints = constraints

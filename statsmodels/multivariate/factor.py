@@ -194,8 +194,7 @@ class Factor(Model):
 
         Returns
         -------
-        FactorResults
-            Results class instance.
+        results: FactorResults
         """
         method = self.method.lower()
         if method == 'pa':
@@ -304,8 +303,7 @@ class Factor(Model):
 
         Returns
         -------
-        float
-            The value of the log-likelihood evaluated at par.
+        loglike : float
         """
 
         if type(par) is np.ndarray:
@@ -348,8 +346,7 @@ class Factor(Model):
 
         Returns
         -------
-        ndarray
-            The score function evaluated at par.
+        score : ndarray
         """
 
         if type(par) is np.ndarray:
@@ -501,17 +498,17 @@ class FactorResults(object):
 
     Attributes
     ----------
-    uniqueness : ndarray
+    uniqueness: ndarray
         The uniqueness (variance of uncorrelated errors unique to
         each variable)
-    communality : ndarray
+    communality: ndarray
         1 - uniqueness
     loadings : ndarray
         Each column is the loading vector for one factor
     loadings_no_rot : ndarray
         Unrotated loadings, not available under maximum likelihood
         analysis.
-    eigenvals : ndarray
+    eigenvalues : ndarray
         The eigenvalues for a factor analysis obtained using
         principal components; not available under ML estimation.
     n_comp : int
@@ -979,7 +976,7 @@ class FactorResults(object):
 
         Parameters
         ----------
-        kurt : float
+        kurt: float
             Excess kurtosis
 
         Notes

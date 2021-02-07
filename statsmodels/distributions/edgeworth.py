@@ -21,21 +21,20 @@ _faa_di_bruno_cache = {
 
 
 def _faa_di_bruno_partitions(n):
-    """
-    Return all non-negative integer solutions of the diophantine equation
+    """ Return all non-negative integer solutions of the diophantine equation
 
             n*k_n + ... + 2*k_2 + 1*k_1 = n   (1)
 
     Parameters
     ----------
-    n : int
+    n: int
         the r.h.s. of Eq. (1)
 
     Returns
     -------
-    partitions : list
-        Each solution is itself a list of the form `[(m, k_m), ...]`
-        for non-zero `k_m`. Notice that the index `m` is 1-based.
+    partitions: a list of solutions of (1). Each solution is itself
+        a list of the form `[(m, k_m), ...]` for non-zero `k_m`.
+        Notice that the index `m` is 1-based.
 
     Examples:
     ---------
@@ -59,16 +58,16 @@ def cumulant_from_moments(momt, n):
 
     Parameters
     ----------
-    momt : array_like
+    momt: array_like
         `momt[j]` contains `(j+1)`-th moment.
         These can be raw moments around zero, or central moments
         (in which case, `momt[0]` == 0).
-    n : int
+    n: int
         which cumulant to calculate (must be >1)
 
     Returns
     -------
-    kappa : float
+    kappa: float
         n-th cumulant.
     """
     if n < 1:
@@ -104,7 +103,7 @@ class ExpandedNormal(rv_continuous):
 
     Parameters
     ----------
-    cum : array_like
+    cum: array_like
         `cum[j]` contains `(j+1)`-th cumulant: cum[0] is the mean,
         cum[1] is the variance and so on.
 

@@ -51,10 +51,6 @@ _predict_docstring = """
         If 'lhr', returns log hazard ratios, if 'hr' returns
         hazard ratios, if 'surv' returns the survival function, if
         'cumhaz' returns the cumulative hazard function.
-    pred_only : bool
-        If True, returns only an array of predicted values.  Otherwise
-        returns a bunch containing the predicted values and standard
-        errors.
 
     Returns
     -------
@@ -124,11 +120,26 @@ class PHSurvivalTime(object):
             entry = np.zeros(len(time))
 
         # Parameter validity checks.
-        self._check(time, status, strata, entry)
+        n1, n2, n3, n4 = len(time), len(status), len(strata),\
+            len(entry)
+        nv = [n1, n2, n3, n4]
+        if max(nv) != min(nv):
+            raise ValueError("endog, status, strata, and " +
+                             "entry must all have the same length")
+        if min(time) < 0:
+            raise ValueError("endog must be non-negative")
+        if min(entry) < 0:
+            raise ValueError("entry time must be non-negative")
+
+        # In Stata, this is entry >= time, in R it is >.
+        if np.any(entry > time):
+            raise ValueError("entry times may not occur " +
+                             "after event or censoring times")
 
         # Get the row indices for the cases in each stratum
         stu = np.unique(strata)
-        sth = {x: [] for x in stu}
+        #sth = {x: [] for x in stu} # needs >=2.7
+        sth = dict([(x, []) for x in stu])
         for i,k in enumerate(strata):
             sth[k].append(i)
         stratum_rows = [np.asarray(sth[k], dtype=np.int32) for k in stu]
@@ -178,14 +189,19 @@ class PHSurvivalTime(object):
         # Number of informative subjects
         self.n_obs = sum([len(ix) for ix in stratum_rows])
 
+        # Split everything by stratum
+        self.time_s = []
+        self.exog_s = []
+        self.status_s = []
+        self.entry_s = []
+        for ix in stratum_rows:
+            self.time_s.append(time[ix])
+            self.exog_s.append(exog[ix,:])
+            self.status_s.append(status[ix])
+            self.entry_s.append(entry[ix])
+
         self.stratum_rows = stratum_rows
         self.stratum_names = stratum_names
-
-        # Split everything by stratum
-        self.time_s = self._split(time)
-        self.exog_s = self._split(exog)
-        self.status_s = self._split(status)
-        self.entry_s = self._split(entry)
 
         # Precalculate some indices needed to fit Cox models.
         # Distinct failure times within a stratum are always taken to
@@ -243,33 +259,6 @@ class PHSurvivalTime(object):
                                     for x in risk_enter1])
             self.risk_exit.append([np.asarray(x, dtype=np.int32)
                                    for x in risk_exit1])
-
-    def _split(self, x):
-        v = []
-        if x.ndim == 1:
-            for ix in self.stratum_rows:
-                v.append(x[ix])
-        else:
-            for ix in self.stratum_rows:
-                v.append(x[ix, :])
-        return v
-
-    def _check(self, time, status, strata, entry):
-        n1, n2, n3, n4 = len(time), len(status), len(strata),\
-            len(entry)
-        nv = [n1, n2, n3, n4]
-        if max(nv) != min(nv):
-            raise ValueError("endog, status, strata, and " +
-                             "entry must all have the same length")
-        if min(time) < 0:
-            raise ValueError("endog must be non-negative")
-        if min(entry) < 0:
-            raise ValueError("entry time must be non-negative")
-
-        # In Stata, this is entry >= time, in R it is >.
-        if np.any(entry > time):
-            raise ValueError("entry times may not occur " +
-                             "after event or censoring times")
 
 
 class PHReg(model.LikelihoodModel):
@@ -345,9 +334,9 @@ class PHReg(model.LikelihoodModel):
         # TODO: not used?
         self.missing = missing
 
-        self.df_resid = float(self.exog.shape[0] -
-                              np.linalg.matrix_rank(self.exog))
-        self.df_model = float(np.linalg.matrix_rank(self.exog))
+        self.df_resid = (np.float(self.exog.shape[0] -
+                                  np.linalg.matrix_rank(self.exog)))
+        self.df_model = np.float(np.linalg.matrix_rank(self.exog))
 
         ties = ties.lower()
         if ties not in ("efron", "breslow"):
@@ -461,7 +450,6 @@ class PHReg(model.LikelihoodModel):
 
         if 'disp' not in args:
             args['disp'] = False
-
         fit_rslts = super(PHReg, self).fit(**args)
 
         if self.groups is None:
@@ -1198,10 +1186,7 @@ class PHReg(model.LikelihoodModel):
         'params_doc': _predict_params_doc,
         'cov_params_doc': _predict_cov_params_docstring})
     def predict(self, params, exog=None, cov_params=None, endog=None,
-                strata=None, offset=None, pred_type="lhr", pred_only=False):
-
-        # This function breaks mediation, because it does not simply
-        # return the predicted values as an array.
+                strata=None, offset=None, pred_type="lhr"):
 
         pred_type = pred_type.lower()
         if pred_type not in ["lhr", "hr", "surv", "cumhaz"]:
@@ -1237,16 +1222,12 @@ class PHReg(model.LikelihoodModel):
                 mat = np.dot(exog, cov_params)
                 va = (mat * exog).sum(1)
                 ret_val.standard_errors = np.sqrt(va)
-            if pred_only:
-                return ret_val.predicted_values
             return ret_val
 
         hr = np.exp(lhr)
 
         if pred_type == "hr":
             ret_val.predicted_values = hr
-            if pred_only:
-                return ret_val.predicted_values
             return ret_val
 
         # Makes sure endog is defined
@@ -1280,12 +1261,9 @@ class PHReg(model.LikelihoodModel):
         elif pred_type == "surv":
             ret_val.predicted_values = np.exp(-cumhaz)
 
-        if pred_only:
-            return ret_val.predicted_values
-
         return ret_val
 
-    def get_distribution(self, params, scale=1.0, exog=None):
+    def get_distribution(self, params):
         """
         Returns a scipy distribution object corresponding to the
         distribution of uncensored endog (duration) values for each
@@ -1295,10 +1273,6 @@ class PHReg(model.LikelihoodModel):
         ----------
         params : array_like
             The proportional hazards model parameters.
-        scale : float
-            Present for compatibility, not used.
-        exog : array_like
-            A design matrix, defaults to model.exog.
 
         Returns
         -------
@@ -1311,6 +1285,10 @@ class PHReg(model.LikelihoodModel):
         failure times within a stratum.
         """
 
+        # TODO: this returns a Python list of rv_discrete objects, so
+        # nothing can be vectorized.  It appears that rv_discrete does
+        # not allow vectorization.
+
         surv = self.surv
         bhaz = self.baseline_cumulative_hazard(params)
 
@@ -1318,14 +1296,9 @@ class PHReg(model.LikelihoodModel):
         # stratum
         pk, xk = [], []
 
-        if exog is None:
-            exog_split = surv.exog_s
-        else:
-            exog_split = self.surv._split(exog)
-
         for stx in range(self.surv.nstrat):
 
-            exog_s = exog_split[stx]
+            exog_s = surv.exog_s[stx]
 
             linpred = np.dot(exog_s, params)
             if surv.offset_s is not None:
@@ -1600,10 +1573,11 @@ class PHRegResults(base.LikelihoodModelResults):
         """
 
         from statsmodels.iolib import summary2
+        from collections import OrderedDict
         smry = summary2.Summary()
         float_format = "%8.3f"
 
-        info = {}
+        info = OrderedDict()
         info["Model:"] = "PH Reg"
         if yname is None:
             yname = self.model.endog_names
@@ -1699,17 +1673,12 @@ class rv_discrete_float(object):
         self.pk = pk
         self.cpk = np.cumsum(self.pk, axis=1)
 
-    def rvs(self, n=None):
+    def rvs(self):
         """
         Returns a random sample from the discrete distribution.
 
         A vector is returned containing a single draw from each row of
         `xk`, using the probabilities of the corresponding row of `pk`
-
-        Parameters
-        ----------
-        n : not used
-            Present for signature compatibility
         """
 
         n = self.xk.shape[0]

@@ -88,11 +88,6 @@ class KalmanFilter(Representation):
         Keyword arguments may be used to provide default values for state space
         matrices. See `Representation` for more details.
 
-    See Also
-    --------
-    FilterResults
-    statsmodels.tsa.statespace.representation.Representation
-
     Notes
     -----
     There are several types of options available for controlling the Kalman
@@ -135,6 +130,11 @@ class KalmanFilter(Representation):
     than explicit matrix inversion) is used. If only SOLVE_CHOLESKY had been
     set, then the Cholesky decomposition method would *always* be used, even in
     the case of 1-dimensional data.
+
+    See Also
+    --------
+    FilterResults
+    statsmodels.tsa.statespace.representation.Representation
     """
 
     filter_methods = [
@@ -1319,7 +1319,7 @@ class KalmanFilter(Representation):
         # Note: we don't even need selection after the first point, because
         # the state shocks will be zeros in every period except the first.
         sim_model = self.clone(
-            endog=np.zeros((steps, self.k_endog), dtype=self.dtype),
+            endog=np.empty((steps, self.k_endog), dtype=self.dtype),
             obs_intercept=np.zeros(self.k_endog),
             design=self['design', :, :, :steps],
             obs_cov=np.zeros((self.k_endog, self.k_endog)),
@@ -2005,8 +2005,31 @@ class FilterResults(FrozenRepresentation):
         if dynamic is False:
             dynamic = None
 
-        # Check validity of dynamic and warn or error if issues
-        dynamic, ndynamic = _check_dynamic(dynamic, start, end, self.nobs)
+        ndynamic = 0
+        if dynamic is not None:
+            # Replace the relative dynamic offset with an absolute offset
+            dynamic = start + dynamic
+
+            # Validate the `dynamic` parameter
+            if dynamic < 0:
+                raise ValueError('Dynamic prediction cannot begin prior to the'
+                                 ' first observation in the sample.')
+            elif dynamic > end:
+                warn('Dynamic prediction specified to begin after the end of'
+                     ' prediction, and so has no effect.', ValueWarning)
+                dynamic = None
+            elif dynamic > self.nobs:
+                warn('Dynamic prediction specified to begin during'
+                     ' out-of-sample forecasting period, and so has no'
+                     ' effect.', ValueWarning)
+                dynamic = None
+
+            # Get the total size of the desired dynamic forecasting component
+            # Note: the first `dynamic` periods of prediction are actually
+            # *not* dynamic, because dynamic prediction begins at observation
+            # `dynamic`.
+            if dynamic is not None:
+                ndynamic = max(0, min(end, self.nobs) - dynamic)
 
         # Get the number of in-sample static predictions
         if dynamic is None:
@@ -2083,7 +2106,7 @@ class FilterResults(FrozenRepresentation):
                            'stationary_cov': stationary_cov})
 
             # Construct the new endogenous array.
-            endog = np.zeros((nforecast, self.k_endog)) * np.nan
+            endog = np.empty((nforecast, self.k_endog)) * np.nan
             model = self.model.extend(
                 endog, start=kf_start, end=kf_end - nforecast, **kwargs)
             # Have to retroactively modify the model's endog
@@ -2246,55 +2269,3 @@ class PredictionResults(FilterResults):
             setattr(self, _attr, value)
 
         return getattr(self, _attr)
-
-
-def _check_dynamic(dynamic, start, end, nobs):
-    """
-    Verify dynamic and warn or error if issues
-
-    Parameters
-    ----------
-    dynamic : {int, None}
-        The offset relative to start of the dynamic forecasts. None if no
-        dynamic forecasts are required.
-    start : int
-        The location of the first forecast.
-    end : int
-        The location of the final forecast (inclusive).
-    nobs : int
-        The number of observations in the time series.
-
-    Returns
-    -------
-    dynamic : {int, None}
-        The start location of the first dynamic forecast. None if there
-        are no in-sample dynamic forecasts.
-    ndynamic : int
-        The number of dynamic forecasts
-    """
-    if dynamic is None:
-        return dynamic, 0
-
-    # Replace the relative dynamic offset with an absolute offset
-    dynamic = start + dynamic
-
-    # Validate the `dynamic` parameter
-    if dynamic < 0:
-        raise ValueError('Dynamic prediction cannot begin prior to the'
-                         ' first observation in the sample.')
-    elif dynamic > end:
-        warn('Dynamic prediction specified to begin after the end of'
-             ' prediction, and so has no effect.', ValueWarning)
-        return None, 0
-    elif dynamic > nobs:
-        warn('Dynamic prediction specified to begin during'
-             ' out-of-sample forecasting period, and so has no'
-             ' effect.', ValueWarning)
-        return None, 0
-
-    # Get the total size of the desired dynamic forecasting component
-    # Note: the first `dynamic` periods of prediction are actually
-    # *not* dynamic, because dynamic prediction begins at observation
-    # `dynamic`.
-    ndynamic = max(0, min(end, nobs) - dynamic)
-    return dynamic, ndynamic

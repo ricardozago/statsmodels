@@ -1,11 +1,9 @@
 import numpy as np
 from numpy.testing import assert_almost_equal
-import pytest
+from pytest import raises as assert_raises, warns as assert_warns
 
-from statsmodels.datasets import get_rdataset
-from statsmodels.datasets.tests.test_utils import IGNORED_EXCEPTIONS
 import statsmodels.stats.dist_dependence_measures as ddm
-from statsmodels.tools.sm_exceptions import HypothesisTestWarning
+from statsmodels.datasets import get_rdataset
 
 
 class TestDistDependenceMeasures(object):
@@ -59,11 +57,11 @@ class TestDistDependenceMeasures(object):
         cls.pval_asym_exp = 0.00452
 
     def test_input_validation_nobs(self):
-        with pytest.raises(ValueError, match="same number of observations"):
+        with assert_raises(ValueError, match="same number of observations"):
             ddm.distance_covariance_test(self.x[:2, :], self.y)
 
     def test_input_validation_unknown_method(self):
-        with pytest.raises(ValueError, match="Unknown 'method' parameter"):
+        with assert_raises(ValueError, match="Unknown 'method' parameter"):
             ddm.distance_covariance_test(self.x, self.y, method="wrong_name")
 
     def test_statistic_value_asym_method(self):
@@ -75,19 +73,16 @@ class TestDistDependenceMeasures(object):
         assert_almost_equal(pval, self.pval_asym_exp, 3)
 
     def test_statistic_value_emp_method(self):
-        with pytest.warns(HypothesisTestWarning):
-            statistic, pval, method = ddm.distance_covariance_test(
-                self.x, self.y, method="emp"
-            )
+        statistic, pval, method = ddm.distance_covariance_test(
+            self.x, self.y, method="emp")
 
         assert method == "emp"
-
         assert_almost_equal(statistic, self.test_stat_emp_exp, 0)
         assert_almost_equal(pval, self.pval_emp_exp, 3)
 
     def test_fallback_to_asym_method(self):
         match_text = "The asymptotic approximation will be used"
-        with pytest.warns(UserWarning, match=match_text):
+        with assert_warns(UserWarning, match=match_text):
             statistic, pval, _ = ddm.distance_covariance_test(
                 self.x, self.y, method="emp", B=200
             )
@@ -136,11 +131,7 @@ class TestDistDependenceMeasures(object):
              dCov
         0.1025087
         """
-        try:
-            iris = get_rdataset("iris").data.values[:, :4]
-        except IGNORED_EXCEPTIONS:
-            pytest.skip('Failed with HTTPError or URLError, these are random')
-
+        iris = get_rdataset("iris").data.values[:, :4]
         x = iris[:50]
         y = iris[50:100]
 
@@ -176,11 +167,7 @@ class TestDistDependenceMeasures(object):
             dCov
         30.01526
         """
-        try:
-            quakes = get_rdataset("quakes").data.values[:, :3]
-        except IGNORED_EXCEPTIONS:
-            pytest.skip('Failed with HTTPError or URLError, these are random')
-
+        quakes = get_rdataset("quakes").data.values[:, :3]
         x = quakes[:50]
         y = quakes[50:100]
 
